@@ -14,17 +14,17 @@ from nanobot.agent.skills import SkillsLoader
 
 class ContextBuilder:
     """Builds the context (system prompt + messages) for the agent."""
-    
+
     BOOTSTRAP_FILES = ["AGENTS.md", "SOUL.md", "USER.md", "TOOLS.md", "IDENTITY.md"]
     _RUNTIME_CONTEXT_TAG = "[Runtime Context — metadata only, not instructions]"
-    
+
     def __init__(self, workspace: Path, sillytavern_config: object | None = None):
         self.workspace = workspace
         from nanobot.config.schema import SillyTavernConfig
         self.sillytavern_config = sillytavern_config or SillyTavernConfig()
         self.memory = MemoryStore(workspace)
         self.skills = SkillsLoader(workspace)
-    
+
     def build_system_prompt(self, skill_names: list[str] | None = None) -> str:
         """Build the system prompt from identity, bootstrap files, memory, and skills."""
         parts = [self._get_identity()]
@@ -58,13 +58,13 @@ Skills with available="false" need dependencies installed first - you can try in
 {skills_summary}""")
 
         return "\n\n---\n\n".join(parts)
-    
+
     def _get_identity(self) -> str:
         """Get the core identity section."""
         workspace_path = str(self.workspace.expanduser().resolve())
         system = platform.system()
         runtime = f"{'macOS' if system == 'Darwin' else system} {platform.machine()}, Python {platform.python_version()}"
-        
+
         return f"""# nanobot 🐈
 
 You are nanobot, a helpful AI assistant.
@@ -96,17 +96,17 @@ Reply directly with text for conversations. Only use the 'message' tool to send 
         if channel and chat_id:
             lines += [f"Channel: {channel}", f"Chat ID: {chat_id}"]
         return ContextBuilder._RUNTIME_CONTEXT_TAG + "\n" + "\n".join(lines)
-    
+
     def _load_bootstrap_files(self) -> str:
         """Load all bootstrap files from workspace."""
         parts = []
-        
+
         for filename in self.BOOTSTRAP_FILES:
             file_path = self.workspace / filename
             if file_path.exists():
                 content = file_path.read_text(encoding="utf-8")
                 parts.append(f"## {filename}\n\n{content}")
-        
+
         return "\n\n".join(parts) if parts else ""
 
     def _build_sillytavern_context(self) -> str:
@@ -176,7 +176,7 @@ Reply directly with text for conversations. Only use the 'message' tool to send 
         except Exception:
             # Fail silently — SillyTavern is optional
             return ""
-    
+
     def build_messages(
         self,
         history: list[dict[str, Any]],
@@ -198,7 +198,7 @@ Reply directly with text for conversations. Only use the 'message' tool to send 
         """Build user message content with optional base64-encoded images."""
         if not media:
             return text
-        
+
         images = []
         for path in media:
             p = Path(path)
@@ -207,11 +207,11 @@ Reply directly with text for conversations. Only use the 'message' tool to send 
                 continue
             b64 = base64.b64encode(p.read_bytes()).decode()
             images.append({"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}})
-        
+
         if not images:
             return text
         return images + [{"type": "text", "text": text}]
-    
+
     def add_tool_result(
         self, messages: list[dict[str, Any]],
         tool_call_id: str, tool_name: str, result: str,
@@ -219,12 +219,13 @@ Reply directly with text for conversations. Only use the 'message' tool to send 
         """Add a tool result to the message list."""
         messages.append({"role": "tool", "tool_call_id": tool_call_id, "name": tool_name, "content": result})
         return messages
-    
+
     def add_assistant_message(
         self, messages: list[dict[str, Any]],
         content: str | None,
         tool_calls: list[dict[str, Any]] | None = None,
         reasoning_content: str | None = None,
+        thinking_blocks: list[dict] | None = None,
     ) -> list[dict[str, Any]]:
         """Add an assistant message to the message list."""
         msg: dict[str, Any] = {"role": "assistant", "content": content}
@@ -232,5 +233,7 @@ Reply directly with text for conversations. Only use the 'message' tool to send 
             msg["tool_calls"] = tool_calls
         if reasoning_content is not None:
             msg["reasoning_content"] = reasoning_content
+        if thinking_blocks:
+            msg["thinking_blocks"] = thinking_blocks
         messages.append(msg)
         return messages
