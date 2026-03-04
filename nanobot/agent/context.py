@@ -6,7 +6,7 @@ import platform
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from nanobot.agent.memory import MemoryStore
 from nanobot.agent.skills import SkillsLoader
@@ -18,26 +18,22 @@ class ContextBuilder:
     BOOTSTRAP_FILES = ["AGENTS.md", "SOUL.md", "USER.md", "TOOLS.md", "IDENTITY.md"]
     _RUNTIME_CONTEXT_TAG = "[Runtime Context — metadata only, not instructions]"
 
-    def __init__(self, workspace: Path, sillytavern_config: object | None = None):
+    def __init__(self, workspace: Path):
         self.workspace = workspace
-        from nanobot.config.schema import SillyTavernConfig
-        self.sillytavern_config = sillytavern_config or SillyTavernConfig()
         self.memory = MemoryStore(workspace)
         self.skills = SkillsLoader(workspace)
+        # Optional hook for injecting extra context (e.g. SillyTavern).
+        # Must return a string or empty string.
+        self.context_hook: Callable[[], str] | None = None
 
     def build_system_prompt(self, skill_names: list[str] | None = None) -> str:
-        """Build the system prompt from identity, bootstrap files, memory, and skills.
-
-        Note: SillyTavern content is NOT included here — it is injected as a
-        separate user message in build_messages() for better model compliance.
-        """
+        """Build the system prompt from identity, bootstrap files, memory, and skills."""
         parts = [self._get_identity()]
 
         bootstrap = self._load_bootstrap_files()
         if bootstrap:
             parts.append(bootstrap)
 
-        # Memory context
         memory = self.memory.get_memory_context()
         if memory:
             parts.append(f"# Memory\n\n{memory}")
@@ -109,74 +105,6 @@ Reply directly with text for conversations. Only use the 'message' tool to send 
 
         return "\n\n".join(parts) if parts else ""
 
-    def _build_sillytavern_context(self) -> str:
-        """Build SillyTavern context (character card, world info, preset, memories).
-
-        Returns empty string if no SillyTavern content is configured.
-        """
-        try:
-            if not self.sillytavern_config.enabled:
-                return ""
-
-            parts: list[str] = []
-
-            # 1. Active character card
-            from nanobot.sillytavern.storage import get_active_character
-            from nanobot.sillytavern.character_card import build_character_prompt
-
-            char = get_active_character()
-            if char:
-                prompt = build_character_prompt(char.data)
-                if prompt:
-                    parts.append(prompt)
-
-            # 2. World info (activated entries)
-            from nanobot.sillytavern.storage import get_enabled_world_info
-            from nanobot.sillytavern.world_info import (
-                get_activated_entries,
-                build_world_info_prompt,
-            )
-            from nanobot.sillytavern.types import WorldInfoBook
-
-            wi_books = get_enabled_world_info()
-            if wi_books:
-                activation_ctx = self.memory.get_memory_context() or ""
-
-                all_activated = []
-                for stored_book in wi_books:
-                    book = WorldInfoBook(entries=stored_book.entries)
-                    activated = get_activated_entries(book, activation_ctx)
-                    all_activated.extend(activated)
-
-                wi_prompt = build_world_info_prompt(all_activated)
-                if wi_prompt:
-                    parts.append(wi_prompt)
-
-            # 3. Active preset (prompt entries)
-            from nanobot.sillytavern.storage import get_active_preset
-            from nanobot.sillytavern.preset import get_enabled_prompts, build_preset_prompt, apply_macros
-            from nanobot.sillytavern.types import MacrosConfig
-
-            preset = get_active_preset()
-            if preset:
-                prompts = get_enabled_prompts(preset.data)
-                preset_prompt = build_preset_prompt(prompts)
-                if preset_prompt:
-                    macros = MacrosConfig(
-                        char=char.name if char else "Assistant",
-                    )
-                    preset_prompt = apply_macros(preset_prompt, macros)
-                    parts.append(f"## Preset Instructions\n\n{preset_prompt}")
-
-            if not parts:
-                return ""
-
-            return "# SillyTavern\n\n" + "\n\n---\n\n".join(parts)
-
-        except Exception:
-            # Fail silently — SillyTavern is optional
-            return ""
-
     def build_messages(
         self,
         history: list[dict[str, Any]],
@@ -186,35 +114,34 @@ Reply directly with text for conversations. Only use the 'message' tool to send 
         channel: str | None = None,
         chat_id: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Build the complete message list for an LLM call.
-
-        SillyTavern context, runtime context, and user content are all merged
-        into a single user message to avoid consecutive same-role messages that
-        some providers reject.
-        """
-        messages: list[dict[str, Any]] = [
-            {"role": "system", "content": self.build_system_prompt(skill_names)},
-        ]
-
-        messages.extend(history)
-
-        # Build all user-side content parts
-        st_content = self._build_sillytavern_context()
+        """Build the complete message list for an LLM call."""
         runtime_ctx = self._build_runtime_context(channel, chat_id)
         user_content = self._build_user_content(current_message, media)
 
-        # Merge everything into a single user message
+        # Collect extra context from hook (e.g. SillyTavern)
+        hook_content = ""
+        if self.context_hook:
+            try:
+                hook_content = self.context_hook() or ""
+            except Exception:
+                hook_content = ""
+
+        # Merge runtime context, hook content, and user content into a single
+        # user message to avoid consecutive same-role messages that some
+        # providers reject.
         if isinstance(user_content, str):
-            text_parts = [p for p in [st_content, runtime_ctx, user_content] if p]
+            text_parts = [p for p in [hook_content, runtime_ctx, user_content] if p]
             merged = "\n\n".join(text_parts)
         else:
-            # Multimodal: prepend text parts, then image content
-            prefix_parts = [p for p in [st_content, runtime_ctx] if p]
+            prefix_parts = [p for p in [hook_content, runtime_ctx] if p]
             prefix = [{"type": "text", "text": "\n\n".join(prefix_parts)}] if prefix_parts else []
             merged = prefix + user_content
 
-        messages.append({"role": "user", "content": merged})
-        return messages
+        return [
+            {"role": "system", "content": self.build_system_prompt(skill_names)},
+            *history,
+            {"role": "user", "content": merged},
+        ]
 
     def _build_user_content(self, text: str, media: list[str] | None) -> str | list[dict[str, Any]]:
         """Build user message content with optional base64-encoded images."""

@@ -65,9 +65,8 @@ class AgentLoop:
         session_manager: SessionManager | None = None,
         mcp_servers: dict | None = None,
         channels_config: ChannelsConfig | None = None,
-        sillytavern_config: object | None = None,  # Avoid circular import
     ):
-        from nanobot.config.schema import ExecToolConfig, SillyTavernConfig
+        from nanobot.config.schema import ExecToolConfig
         self.bus = bus
         self.channels_config = channels_config
         self.provider = provider
@@ -84,8 +83,7 @@ class AgentLoop:
         self.cron_service = cron_service
         self.restrict_to_workspace = restrict_to_workspace
 
-        self.sillytavern_config = sillytavern_config or SillyTavernConfig()
-        self.context = ContextBuilder(workspace, self.sillytavern_config)
+        self.context = ContextBuilder(workspace)
         self.sessions = session_manager or SessionManager(workspace)
         self.tools = ToolRegistry()
         self.subagents = SubagentManager(
@@ -112,6 +110,8 @@ class AgentLoop:
         self._consolidation_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
         self._active_tasks: dict[str, list[asyncio.Task]] = {}  # session_key -> tasks
         self._processing_lock = asyncio.Lock()
+        # Optional hook for filtering response content (e.g. SillyTavern tag extraction).
+        self.response_filter: Callable[[str], str] | None = None
         self._register_default_tools()
 
     def _register_default_tools(self) -> None:
@@ -178,31 +178,6 @@ class AgentLoop:
                 return tc.name
             return f'{tc.name}("{val[:40]}…")' if len(val) > 40 else f'{tc.name}("{val}")'
         return ", ".join(_fmt(tc) for tc in tool_calls)
-
-    def _apply_response_filter(self, content: str) -> str:
-        """
-        Filter response content based on SillyTavern configuration.
-        If response_filter_tag is set (e.g. "answer"), only return content within <tag>...</tag>.
-        If the tag is not found, return the full content (fallback).
-        """
-        if not content:
-            return content
-
-        if not self.sillytavern_config.enabled:
-            return content
-
-        tag = self.sillytavern_config.response_filter_tag
-        if not tag:
-            return content
-
-        pattern = f"<{tag}>(.*?)</{tag}>"
-        matches = re.findall(pattern, content, re.DOTALL)
-
-        if matches:
-            return "\n\n".join(m.strip() for m in matches if m.strip())
-
-        # Fallback: return full content if tag is missing
-        return content
 
     async def _run_agent_loop(
         self,
@@ -272,8 +247,8 @@ class AgentLoop:
                     thinking_blocks=response.thinking_blocks,
                 )
                 final_content = clean
-                if final_content:
-                    final_content = self._apply_response_filter(final_content)
+                if final_content and self.response_filter:
+                    final_content = self.response_filter(final_content)
                 break
 
         if final_content is None and iteration >= self.max_iterations:

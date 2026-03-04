@@ -19,7 +19,6 @@ from rich.text import Text
 
 from nanobot import __logo__, __version__
 from nanobot.config.schema import Config
-from nanobot.cli.sillytavern import st_app
 from nanobot.utils.helpers import sync_workspace_templates
 
 app = typer.Typer(
@@ -31,8 +30,12 @@ app = typer.Typer(
 console = Console()
 EXIT_COMMANDS = {"exit", "quit", "/exit", "/quit", ":q"}
 
-# SillyTavern sub-commands
-app.add_typer(st_app, name="st")
+# SillyTavern sub-commands (optional plugin)
+try:
+    from nanobot.cli.sillytavern import st_app
+    app.add_typer(st_app, name="st")
+except ImportError:
+    pass
 
 # ---------------------------------------------------------------------------
 # CLI input: prompt_toolkit for editing, paste, history, and display
@@ -202,6 +205,85 @@ def onboard():
 
 
 
+def _attach_sillytavern_hooks(agent, config: Config) -> None:
+    """Attach SillyTavern hooks to agent if enabled (plugin pattern)."""
+    try:
+        st_cfg = config.sillytavern
+        if not st_cfg.enabled:
+            return
+
+        import re
+        from nanobot.agent.memory import MemoryStore
+
+        # Context hook: inject character card, world info, preset
+        def _build_st_context() -> str:
+            try:
+                from nanobot.sillytavern.storage import get_active_character
+                from nanobot.sillytavern.character_card import build_character_prompt
+
+                parts: list[str] = []
+                char = get_active_character()
+                if char:
+                    prompt = build_character_prompt(char.data)
+                    if prompt:
+                        parts.append(prompt)
+
+                from nanobot.sillytavern.storage import get_enabled_world_info
+                from nanobot.sillytavern.world_info import get_activated_entries, build_world_info_prompt
+                from nanobot.sillytavern.types import WorldInfoBook
+
+                wi_books = get_enabled_world_info()
+                if wi_books:
+                    memory = MemoryStore(config.workspace_path)
+                    activation_ctx = memory.get_memory_context() or ""
+                    all_activated = []
+                    for stored_book in wi_books:
+                        book = WorldInfoBook(entries=stored_book.entries)
+                        activated = get_activated_entries(book, activation_ctx)
+                        all_activated.extend(activated)
+                    wi_prompt = build_world_info_prompt(all_activated)
+                    if wi_prompt:
+                        parts.append(wi_prompt)
+
+                from nanobot.sillytavern.storage import get_active_preset
+                from nanobot.sillytavern.preset import get_enabled_prompts, build_preset_prompt, apply_macros
+                from nanobot.sillytavern.types import MacrosConfig
+
+                preset = get_active_preset()
+                if preset:
+                    prompts = get_enabled_prompts(preset.data)
+                    preset_prompt = build_preset_prompt(prompts)
+                    if preset_prompt:
+                        macros = MacrosConfig(char=char.name if char else "Assistant")
+                        preset_prompt = apply_macros(preset_prompt, macros)
+                        parts.append(f"## Preset Instructions\n\n{preset_prompt}")
+
+                if not parts:
+                    return ""
+                return "# SillyTavern\n\n" + "\n\n---\n\n".join(parts)
+            except Exception:
+                return ""
+
+        agent.context.context_hook = _build_st_context
+
+        # Response filter hook: extract content within <tag>...</tag>
+        tag = st_cfg.response_filter_tag
+        if tag:
+            def _response_filter(content: str) -> str:
+                if not content:
+                    return content
+                pattern = f"<{tag}>(.*?)</{tag}>"
+                matches = re.findall(pattern, content, re.DOTALL)
+                if matches:
+                    return "\n\n".join(m.strip() for m in matches if m.strip())
+                return content  # Fallback: return full content if tag is missing
+
+            agent.response_filter = _response_filter
+
+    except Exception:
+        pass  # SillyTavern is optional — fail silently
+
+
 def _make_provider(config: Config):
     """Create the appropriate LLM provider from config."""
     from nanobot.providers.custom_provider import CustomProvider
@@ -295,8 +377,8 @@ def gateway(
         session_manager=session_manager,
         mcp_servers=config.tools.mcp_servers,
         channels_config=config.channels,
-        sillytavern_config=config.sillytavern,
     )
+    _attach_sillytavern_hooks(agent, config)
 
     # Set cron callback (needs agent)
     async def on_cron_job(job: CronJob) -> str | None:
@@ -478,8 +560,8 @@ def agent(
         restrict_to_workspace=config.tools.restrict_to_workspace,
         mcp_servers=config.tools.mcp_servers,
         channels_config=config.channels,
-        sillytavern_config=config.sillytavern,
     )
+    _attach_sillytavern_hooks(agent_loop, config)
 
     # Show spinner when logs are off (no output to miss); skip when logs are on
     def _thinking_ctx():
