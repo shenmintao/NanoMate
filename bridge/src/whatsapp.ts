@@ -64,12 +64,16 @@ export class WhatsAppClient {
       try {
         if (proxyUrl.startsWith('socks')) {
           agent = new SocksProxyAgent(proxyUrl);
+          console.log('✓ Created SOCKS proxy agent');
         } else {
           agent = new HttpsProxyAgent(proxyUrl);
+          console.log('✓ Created HTTPS proxy agent');
         }
       } catch (error) {
-        console.error('Failed to create proxy agent:', error);
+        console.error('❌ Failed to create proxy agent:', error);
       }
+    } else {
+      console.log('ℹ️ No proxy configured (all proxy env vars are empty)');
     }
 
     // Use hardcoded version to avoid network request during initialization
@@ -79,7 +83,7 @@ export class WhatsAppClient {
 
 
     // Create socket following OpenClaw's pattern
-    this.sock = makeWASocket({
+    const socketOptions: any = {
       auth: {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, logger),
@@ -90,8 +94,16 @@ export class WhatsAppClient {
       browser: ['nanobot', 'cli', VERSION],
       syncFullHistory: false,
       markOnlineOnConnect: false,
-      ...(agent ? { agent } : {}),
-    });
+    };
+
+    // Configure WebSocket proxy if available
+    if (agent) {
+      socketOptions.agent = agent;
+      // Also configure fetchAgent for HTTP requests
+      socketOptions.fetchAgent = agent;
+    }
+
+    this.sock = makeWASocket(socketOptions);
 
     // Handle WebSocket errors
     if (this.sock.ws && typeof this.sock.ws.on === 'function') {
