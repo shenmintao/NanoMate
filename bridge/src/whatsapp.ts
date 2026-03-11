@@ -53,11 +53,8 @@ export class WhatsAppClient {
   async connect(): Promise<void> {
     const logger = pino({ level: 'silent' });
     const { state, saveCreds } = await useMultiFileAuthState(this.options.authDir);
-    const { version } = await fetchLatestBaileysVersion();
 
-    console.log(`Using Baileys version: ${version.join('.')}`);
-
-    // Configure proxy agent if proxy environment variables are set
+    // Configure proxy agent BEFORE fetching version
     let agent: any = undefined;
     const proxyUrl = process.env.https_proxy || process.env.HTTPS_PROXY ||
                      process.env.http_proxy || process.env.HTTP_PROXY ||
@@ -75,6 +72,11 @@ export class WhatsAppClient {
         console.error('Failed to create proxy agent:', error);
       }
     }
+
+    // Fetch version with proxy support
+    const { version } = await fetchLatestBaileysVersion();
+    console.log(`Using Baileys version: ${version.join('.')}`);
+
 
     // Create socket following OpenClaw's pattern
     this.sock = makeWASocket({
