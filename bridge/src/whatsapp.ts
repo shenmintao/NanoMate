@@ -16,8 +16,8 @@ import makeWASocket, {
 import { Boom } from '@hapi/boom';
 import qrcode from 'qrcode-terminal';
 import pino from 'pino';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
+import { writeFile, mkdir, readFile } from 'fs/promises';
+import { join, extname } from 'path';
 import { randomBytes } from 'crypto';
 
 const VERSION = '0.1.0';
@@ -228,6 +228,53 @@ export class WhatsAppClient {
     }
 
     await this.sock.sendMessage(to, { text });
+  }
+
+  async sendMedia(to: string, mediaPath: string, caption?: string): Promise<void> {
+    if (!this.sock) {
+      throw new Error('Not connected');
+    }
+
+    try {
+      const buffer = await readFile(mediaPath);
+      const ext = extname(mediaPath).toLowerCase();
+
+      // Determine media type from file extension
+      const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+      const videoExts = ['.mp4', '.mkv', '.avi', '.mov', '.3gp'];
+      const audioExts = ['.mp3', '.ogg', '.opus', '.m4a', '.aac'];
+
+      if (imageExts.includes(ext)) {
+        await this.sock.sendMessage(to, {
+          image: buffer,
+          caption: caption || undefined,
+        });
+      } else if (videoExts.includes(ext)) {
+        await this.sock.sendMessage(to, {
+          video: buffer,
+          caption: caption || undefined,
+        });
+      } else if (audioExts.includes(ext)) {
+        await this.sock.sendMessage(to, {
+          audio: buffer,
+          mimetype: 'audio/mp4',
+          ptt: false,
+        });
+      } else {
+        // Send as document for other file types
+        const filename = mediaPath.split('/').pop() || 'file';
+        await this.sock.sendMessage(to, {
+          document: buffer,
+          fileName: filename,
+          caption: caption || undefined,
+        });
+      }
+
+      console.log(`Sent media: ${mediaPath} to ${to}`);
+    } catch (err) {
+      console.error('Failed to send media:', err);
+      throw err;
+    }
   }
 
   async disconnect(): Promise<void> {

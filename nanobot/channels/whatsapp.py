@@ -89,6 +89,9 @@ class WhatsAppChannel(BaseChannel):
                 "to": msg.chat_id,
                 "text": msg.content
             }
+            # Add media support if present
+            if msg.media:
+                payload["media"] = msg.media
             await self._ws.send(json.dumps(payload, ensure_ascii=False))
         except Exception as e:
             logger.error("Error sending WhatsApp message: {}", e)

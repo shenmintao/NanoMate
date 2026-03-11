@@ -10,6 +10,7 @@ interface SendCommand {
   type: 'send';
   to: string;
   text: string;
+  media?: string[];
 }
 
 interface BridgeMessage {
@@ -94,7 +95,15 @@ export class BridgeServer {
 
   private async handleCommand(cmd: SendCommand): Promise<void> {
     if (cmd.type === 'send' && this.wa) {
-      await this.wa.sendMessage(cmd.to, cmd.text);
+      // Send media files if present
+      if (cmd.media && cmd.media.length > 0) {
+        for (const mediaPath of cmd.media) {
+          await this.wa.sendMedia(cmd.to, mediaPath, cmd.text);
+        }
+      } else {
+        // Send text-only message
+        await this.wa.sendMessage(cmd.to, cmd.text);
+      }
     }
   }
 
