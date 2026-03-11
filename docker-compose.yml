@@ -10,6 +10,10 @@ services:
     command: ["gateway"]
     restart: unless-stopped
     network_mode: host
+    environment:
+      - HTTP_PROXY=http://192.168.10.50:1080
+      - HTTPS_PROXY=http://192.168.10.50:1080
+      - NO_PROXY=localhost,127.0.0.1,192.168.0.0/16
  
   nanobot-cli:
     <<: *common-config
@@ -29,4 +33,8 @@ services:
     command: ["npm", "start"]
     restart: unless-stopped
     network_mode: host
+    environment:
+      - HTTP_PROXY=http://192.168.10.50:1080
+      - HTTPS_PROXY=http://192.168.10.50:1080
+      - NO_PROXY=localhost,127.0.0.1,192.168.0.0/16
 

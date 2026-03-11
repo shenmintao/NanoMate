@@ -335,6 +335,31 @@ class SillyTavernConfig(Base):
     response_filter_tag: str | None = None  # If set, only return content within <tag>...</tag>
 
 
+class TTSConfig(Base):
+    """Text-to-Speech configuration."""
+
+    enabled: bool = False  # Enable TTS synthesis
+    provider: str = "edge"  # "edge" or "sovits"
+    auto_send: bool = True  # Automatically send voice messages (if channel supports)
+
+    # Edge TTS settings
+    edge_voice: str = "zh-CN-XiaoxiaoNeural"  # Edge TTS voice
+    edge_rate: str = "+0%"  # Speech rate
+    edge_volume: str = "+0%"  # Speech volume
+
+    # GPT-SoVITS settings
+    sovits_api_url: str = "http://127.0.0.1:9880"  # GPT-SoVITS API endpoint
+    sovits_refer_wav_path: str = ""  # Reference audio for voice cloning
+    sovits_prompt_text: str = ""  # Text of reference audio
+    sovits_prompt_language: str = "zh"  # Reference audio language
+    sovits_text_language: str = "zh"  # Synthesis text language
+    sovits_cut_punc: str = "，。"  # Sentence splitting punctuation
+    sovits_top_k: int = 5
+    sovits_top_p: float = 1.0
+    sovits_temperature: float = 1.0
+    sovits_speed: float = 1.0
+
+
 class ToolsConfig(Base):
     """Tools configuration."""
 
@@ -353,6 +378,7 @@ class Config(BaseSettings):
     gateway: GatewayConfig = Field(default_factory=GatewayConfig)
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
     sillytavern: SillyTavernConfig = Field(default_factory=SillyTavernConfig)
+    tts: TTSConfig = Field(default_factory=TTSConfig)
 
     @property
     def workspace_path(self) -> Path:
