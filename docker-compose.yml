@@ -34,6 +34,7 @@ services:
     restart: unless-stopped
     network_mode: host
     environment:
+      - BRIDGE_PORT=3002
       - HTTP_PROXY=http://192.168.10.50:1080
       - HTTPS_PROXY=http://192.168.10.50:1080
       - NO_PROXY=localhost,127.0.0.1,192.168.0.0/16
