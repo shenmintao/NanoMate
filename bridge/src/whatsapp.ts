@@ -10,7 +10,6 @@ import makeWASocket, {
   makeCacheableSignalKeyStore,
   downloadMediaMessage,
   extractMessageContent as baileysExtractMessageContent,
-  fetchLatestBaileysVersion,
 } from '@whiskeysockets/baileys';
 
 import { Boom } from '@hapi/boom';
@@ -77,19 +76,10 @@ export class WhatsAppClient {
       console.log('ℹ️ No proxy configured (all proxy env vars are empty)');
     }
 
-    // Fetch latest Baileys version with proxy support
-    let version: [number, number, number];
-    try {
-      const fetchOptions = agent ? { fetchAgent: agent } : {};
-      const { version: latestVersion } = await fetchLatestBaileysVersion(fetchOptions);
-      version = latestVersion;
-      console.log(`✓ Fetched latest Baileys version: ${version.join('.')}`);
-    } catch (error) {
-      // Fallback to hardcoded version if fetch fails
-      version = [2, 3000, 1033846690];
-      console.log(`⚠️ Failed to fetch Baileys version, using fallback: ${version.join('.')}`);
-      console.log(`   Error: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    // Use hardcoded version - fetchLatestBaileysVersion() doesn't support proxy configuration
+    // and may fail in restricted network environments
+    const version: [number, number, number] = [2, 3000, 1033846690];
+    console.log(`Using Baileys version: ${version.join('.')}`);
 
     // Create socket following OpenClaw's pattern
     const socketOptions: any = {
