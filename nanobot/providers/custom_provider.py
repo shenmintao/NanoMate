@@ -16,14 +16,18 @@ _DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537
 
 class CustomProvider(LLMProvider):
 
-    def __init__(self, api_key: str = "no-key", api_base: str = "http://localhost:8000/v1", default_model: str = "default"):
+    def __init__(self, api_key: str = "no-key", api_base: str = "http://localhost:8000/v1",
+                 default_model: str = "default", extra_headers: dict[str, str] | None = None):
         super().__init__(api_key, api_base)
         self.default_model = default_model
+        headers = {"x-session-affinity": uuid.uuid4().hex, "User-Agent": _DEFAULT_USER_AGENT}
+        if extra_headers:
+            headers.update(extra_headers)
         # Keep affinity stable for this provider instance to improve backend cache locality.
         self._client = AsyncOpenAI(
             api_key=api_key,
             base_url=api_base,
-            default_headers={"x-session-affinity": uuid.uuid4().hex},
+            default_headers=headers,
         )
 
     async def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None,
