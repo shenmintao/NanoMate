@@ -135,6 +135,8 @@ class AgentLoop:
         if self.image_gen_config and self.image_gen_config.enabled:
             self.tools.register(ImageGenTool(
                 api_key=self.image_gen_config.api_key,
+                base_url=self.image_gen_config.base_url,
+                model=self.image_gen_config.model,
                 proxy=self.image_gen_config.proxy,
             ))
 
