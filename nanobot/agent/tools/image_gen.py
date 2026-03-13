@@ -1,4 +1,4 @@
-"""Image generation tool using OpenAI-compatible API."""
+"""Image generation tool supporting both OpenAI and Gemini API formats."""
 
 import base64
 import time
@@ -13,7 +13,7 @@ from nanobot.config.paths import get_media_dir
 
 
 class ImageGenTool(Tool):
-    """Generate images via OpenAI-compatible API (supports DALL-E, custom endpoints, etc.)."""
+    """Generate images via OpenAI or Gemini API (auto-detects format based on model name)."""
 
     def __init__(
         self,
@@ -28,13 +28,17 @@ class ImageGenTool(Tool):
         Args:
             api_key: API key for authentication
             base_url: Base URL for the API (e.g., "https://api.openai.com/v1" or custom relay)
-            model: Model name (e.g., "dall-e-3", "dall-e-2", or custom model)
+            model: Model name (e.g., "dall-e-3", "gemini-3-pro-image-preview")
             proxy: Optional HTTP/SOCKS proxy URL
         """
         self._api_key = api_key
         self.base_url = base_url.rstrip('/')
         self.model = model
         self.proxy = proxy
+
+    def _is_gemini_model(self) -> bool:
+        """Check if the model uses Gemini API format."""
+        return "gemini" in self.model.lower() and "image" in self.model.lower()
 
     @property
     def name(self) -> str:
@@ -87,7 +91,20 @@ class ImageGenTool(Tool):
         if not self._api_key:
             return "Error: Image generation API key not configured. Set tools.imageGen.apiKey in config."
 
-        # Default size based on common models
+        # Route to appropriate implementation based on model
+        if self._is_gemini_model():
+            return await self._execute_gemini(prompt, size)
+        else:
+            return await self._execute_openai(prompt, size, quality, style)
+
+    async def _execute_openai(
+        self,
+        prompt: str,
+        size: str | None,
+        quality: str,
+        style: str,
+    ) -> str:
+        """Execute image generation using OpenAI format."""
         if not size:
             size = "1024x1024"
 
@@ -111,7 +128,7 @@ class ImageGenTool(Tool):
             body["style"] = style
 
         logger.info(
-            "ImageGen: model={} size={} quality={} prompt={!r}",
+            "ImageGen (OpenAI): model={} size={} quality={} prompt={!r}",
             self.model,
             size,
             quality,
@@ -122,7 +139,7 @@ class ImageGenTool(Tool):
             async with httpx.AsyncClient(
                 proxy=self.proxy,
                 timeout=120.0,
-                trust_env=True,  # Support proxy from environment variables
+                trust_env=True,
             ) as client:
                 resp = await client.post(url, json=body, headers=headers)
                 resp.raise_for_status()
@@ -151,6 +168,106 @@ class ImageGenTool(Tool):
             return "Error: Request timed out (120s). Try again or use a smaller size."
         except Exception as e:
             logger.error("ImageGen error: {}", e)
+            return f"Error generating image: {e}"
+
+    async def _execute_gemini(
+        self,
+        prompt: str,
+        size: str | None,
+    ) -> str:
+        """Execute image generation using Gemini format."""
+        # Map size to Gemini's aspectRatio and image_size
+        aspect_ratio = "1:1"
+        image_size = "2K"
+
+        if size:
+            # Parse size like "1024x1024" or "1792x1024"
+            parts = size.lower().split('x')
+            if len(parts) == 2:
+                try:
+                    w, h = int(parts[0]), int(parts[1])
+                    # Determine aspect ratio
+                    if w == h:
+                        aspect_ratio = "1:1"
+                    elif w > h:
+                        if w / h >= 1.7:
+                            aspect_ratio = "16:9"
+                        else:
+                            aspect_ratio = "4:3"
+                    else:
+                        if h / w >= 1.7:
+                            aspect_ratio = "9:16"
+                        else:
+                            aspect_ratio = "3:4"
+
+                    # Determine resolution tier
+                    max_dim = max(w, h)
+                    if max_dim <= 1024:
+                        image_size = "1K"
+                    elif max_dim <= 2048:
+                        image_size = "2K"
+                    else:
+                        image_size = "4K"
+                except ValueError:
+                    pass
+
+        url = f"{self.base_url}/v1beta/models/{self.model}:generateContent"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self._api_key}",
+        }
+
+        body = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "responseModalities": ["IMAGE"],
+                "imageConfig": {
+                    "aspectRatio": aspect_ratio,
+                    "image_size": image_size,
+                },
+            },
+        }
+
+        logger.info(
+            "ImageGen (Gemini): model={} aspectRatio={} size={} prompt={!r}",
+            self.model,
+            aspect_ratio,
+            image_size,
+            prompt[:80],
+        )
+
+        try:
+            async with httpx.AsyncClient(
+                proxy=self.proxy,
+                timeout=600.0,  # Gemini can be slower, especially for 4K
+                trust_env=True,
+            ) as client:
+                resp = await client.post(url, json=body, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+
+                # Parse Gemini response format
+                try:
+                    parts = data["candidates"][0]["content"]["parts"]
+                    image_part = next(p for p in parts if "inlineData" in p)
+                    b64_data = image_part["inlineData"]["data"]
+                    return await self._save_base64(b64_data)
+                except (KeyError, IndexError, StopIteration):
+                    snippet = str(data)[:500]
+                    return f"Error: No image data in Gemini API response: {snippet}"
+
+        except httpx.HTTPStatusError as e:
+            try:
+                error_detail = e.response.json()
+                error_msg = error_detail.get("error", {}).get("message", e.response.text[:300])
+            except Exception:
+                error_msg = e.response.text[:300]
+
+            return f"Error: API {e.response.status_code} - {error_msg}"
+        except httpx.TimeoutException:
+            return "Error: Request timed out (600s). Try again or use a smaller size."
+        except Exception as e:
+            logger.error("ImageGen (Gemini) error: {}", e)
             return f"Error generating image: {e}"
 
     async def _save_base64(self, b64_data: str) -> str:
