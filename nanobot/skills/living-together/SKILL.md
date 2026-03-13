@@ -83,20 +83,25 @@ THEN
 ### Step 3: 生成 Prompt
 基于场景类型自动构建 prompt：
 
-注意：prompt 中必须包含从照片观察到的环境细节（天气、光照、季节），使合成结果与原照片协调。
+**核心原则：保留原始背景**
+prompt 必须明确指示模型保留用户照片中的原始背景/场景，仅将角色自然地融入其中。
+避免使用 "Create a photo at {location}" 这类会导致模型重新生成整个场景的措辞。
+应使用 "Add/Insert/Place the character into the existing scene" 等保留背景的指令。
+
+注意：prompt 中必须包含从照片观察到的环境细节（天气、光照、季节），使角色融入效果与原照片协调。
 
 ```python
 # 旅游场景
-prompt = f"Create a natural photo showing the person from image 1 and the character from image 2 standing together at {location}, both smiling at the camera, {emotion} atmosphere, {lighting} lighting, {weather} weather, photorealistic composition"
+prompt = f"Keep the original background from image 1 exactly as it is. Naturally insert the character from image 2 standing next to the person in image 1 at {location}, both smiling at the camera, matching the existing {lighting} lighting and {weather} conditions, seamless photorealistic blending"
 
 # 日常场景
-prompt = f"Place both people from these images in a {setting}, sitting {position}, {activity}, {lighting} lighting, {atmosphere} atmosphere"
+prompt = f"Preserve the original scene from image 1 unchanged. Add the character from image 2 into the scene, sitting {position} near the person, {activity}, matching the existing {lighting} lighting and {atmosphere} atmosphere"
 
 # 庆祝场景
-prompt = f"Create a joyful {event} celebration photo with both people from these images, {decoration} in the background, happy expressions, festive mood, {lighting} lighting"
+prompt = f"Keep the background and setting from image 1 intact. Place the character from image 2 next to the person, celebrating {event} together, happy expressions, matching the existing festive scene and {lighting} lighting"
 
 # 亲密场景
-prompt = f"Generate a tender moment showing the person from image 1 and character from image 2 {action}, {emotion} atmosphere, {lighting} lighting"
+prompt = f"Maintain the original background from image 1. Blend the character from image 2 into the scene, {action} with the person, matching the existing {emotion} atmosphere and {lighting} lighting"
 ```
 
 **环境变量示例：**
@@ -164,49 +169,49 @@ prompt = f"Generate a tender moment showing the person from image 1 and characte
 ### 旅游场景模板
 ```
 # 地标打卡
-"Create a couple photo at {landmark} with the person from image 1 and the character from image 2 standing side by side, both looking at the camera with big smiles, tourist photo style, clear blue sky, vibrant colors"
+"Preserve the original background scene from image 1. Insert the character from image 2 standing side by side with the person, both looking at the camera with big smiles, tourist photo style, match the existing lighting and colors, seamless photorealistic blending"
 
 # 自然风景
-"Generate a romantic scene showing both people from these images at {natural_location} (beach/mountain/lake), standing close together enjoying the view, golden hour lighting, peaceful atmosphere, photorealistic"
+"Keep the original landscape from image 1 unchanged. Add the character from image 2 standing close to the person, both enjoying the view together, match the existing golden hour/natural lighting, seamless blending into the scene"
 
 # 城市探索
-"Place both people from these images in {city} street scene, walking together, casual and happy vibe, urban background, natural daylight, candid photo style"
+"Maintain the original street scene from image 1. Place the character from image 2 walking alongside the person, casual and happy vibe, match the existing urban environment and daylight, candid photo style"
 ```
 
 ### 日常场景模板
 ```
 # 咖啡馆
-"Create a cozy cafe scene with the person from image 1 and character from image 2 sitting across from each other at a small table, coffee cups between them, chatting and smiling, warm indoor lighting, bokeh background"
+"Keep the original cafe setting from image 1 intact. Add the character from image 2 sitting across from the person at the table, chatting and smiling, match the existing warm indoor lighting, seamless composition"
 
 # 居家时光
-"Generate a comfortable home scene showing both people from these images sitting on a couch together, relaxed posture, watching TV or reading, warm living room lighting, intimate and cozy"
+"Preserve the original room scene from image 1. Insert the character from image 2 sitting beside the person on the couch, relaxed posture, match the existing warm lighting and cozy atmosphere"
 
 # 户外活动
-"Place both people from these images in a park setting, {activity} (walking/sitting on bench/having picnic) together, natural sunlight, happy and relaxed expressions, candid moment"
+"Maintain the original outdoor scene from image 1. Place the character from image 2 next to the person, {activity} together, match the existing natural sunlight, happy and relaxed expressions, candid moment"
 ```
 
 ### 庆祝场景模板
 ```
 # 生日
-"Create a birthday celebration photo with both people from these images, birthday cake with candles in front, party decorations in background, joyful expressions, one person making a wish, festive atmosphere"
+"Keep the original scene from image 1 as the background. Add the character from image 2 next to the person near the birthday cake, joyful expressions, match the existing festive atmosphere and lighting"
 
 # 成就庆祝
-"Generate a celebratory moment showing the person from image 1 and character from image 2, character giving a congratulatory hug or high-five, proud and happy expressions, achievement celebration vibe"
+"Preserve the original scene from image 1. Insert the character from image 2 giving the person a congratulatory hug or high-five, proud and happy expressions, match the existing lighting and environment"
 
 # 节日
-"Create a {holiday} themed photo with both people from these images, {holiday_decorations}, festive mood, warm lighting, cultural authenticity, both in appropriate attire"
+"Maintain the original {holiday} scene from image 1 unchanged. Add the character from image 2 next to the person, festive mood, match the existing decorations, lighting, and atmosphere"
 ```
 
 ### 亲密场景模板
 ```
 # 拥抱
-"Generate a tender hug between the person from image 1 and character from image 2, close embrace, emotional moment, soft lighting, shallow depth of field, focus on connection"
+"Keep the original background from image 1. Blend the character from image 2 into a tender hug with the person, close embrace, emotional moment, match the existing lighting, shallow depth of field"
 
 # 牵手
-"Create a photo showing both people from these images holding hands, walking together or sitting close, intimate moment, natural lighting, focus on the hand-holding, romantic atmosphere"
+"Preserve the original scene from image 1. Add the character from image 2 holding hands with the person, intimate moment, match the existing lighting and atmosphere, focus on the hand-holding"
 
 # 注视
-"Generate an intimate moment with the person from image 1 and character from image 2 looking at each other, sitting close, gentle smiles, soft backlight, romantic and tender mood"
+"Maintain the original background from image 1. Place the character from image 2 sitting close to the person, both looking at each other, gentle smiles, match the existing soft lighting, romantic and tender mood"
 ```
 
 ---
@@ -321,12 +326,12 @@ User: *uploads photo of themselves at Eiffel Tower*
    - 合适互动：并肩站立，看向镜头
 
 3. 生成 Prompt：
-   "Create a romantic couple photo at the Eiffel Tower in Paris
-    with the person from image 1 and the character from image 2
-    standing side by side, both smiling at the camera,
-    looking happy and excited, golden hour lighting,
-    tourist photo style, clear sky in background,
-    photorealistic composition, seamless blending"
+   "Preserve the original Eiffel Tower background from image 1
+    exactly as it is. Insert the character from image 2
+    standing side by side with the person, both smiling
+    at the camera, looking happy and excited, match the
+    existing golden hour lighting and clear sky,
+    tourist photo style, seamless photorealistic blending"
 
 4. 调用工具：
    image_gen(
