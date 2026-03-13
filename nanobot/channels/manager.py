@@ -44,6 +44,7 @@ class ChannelManager:
                 cls = load_channel_class(modname)
                 channel = cls(section, self.bus)
                 channel.transcription_api_key = groq_key
+                channel._merge_window_s = self.config.channels.merge_window_s
                 self.channels[modname] = channel
                 logger.info("{} channel enabled", cls.display_name)
             except ImportError as e:

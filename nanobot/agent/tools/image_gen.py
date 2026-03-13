@@ -98,6 +98,8 @@ class ImageGenTool(Tool):
         base = (
             "Generate an image from a text prompt, or edit/transform an existing image. "
             "To edit an existing image, provide the file path in 'reference_image'. "
+            "For multi-image composition (e.g., combining people from different photos), "
+            "provide multiple file paths as a list. "
             "IMPORTANT: After generating, you MUST call the 'message' tool "
             "with the returned file path in the 'media' parameter to send the image to the user. "
             "Do not just reply with text - the user expects to receive the actual image."
@@ -116,12 +118,15 @@ class ImageGenTool(Tool):
             "properties": {
                 "prompt": {
                     "type": "string",
-                    "description": "Text description of the image to generate, or instructions for editing the reference image",
+                    "description": "Text description of the image to generate, or instructions for editing the reference image(s). "
+                    "For multi-image composition, describe how to combine them (e.g., 'Put the person from image 1 and the cat from image 2 together at the beach').",
                 },
                 "reference_image": {
-                    "type": "string",
-                    "description": "Optional file path to a source image for image-to-image editing. "
-                    "When provided, the model will use this image as a base and apply the prompt as editing instructions.",
+                    "type": ["string", "array"],
+                    "items": {"type": "string"},
+                    "description": "Optional file path(s) to source image(s) for image-to-image editing. "
+                    "Can be a single path string, or an array of paths for multi-image composition. "
+                    "When provided, the model will use these images as a base and apply the prompt as editing/composition instructions.",
                 },
                 "size": {
                     "type": "string",
@@ -144,7 +149,7 @@ class ImageGenTool(Tool):
     async def execute(
         self,
         prompt: str,
-        reference_image: str | None = None,
+        reference_image: str | list[str] | None = None,
         size: str | None = None,
         quality: str = "standard",
         style: str = "vivid",
@@ -153,34 +158,43 @@ class ImageGenTool(Tool):
         if not self._api_key:
             return "Error: Image generation API key not configured. Set tools.imageGen.apiKey in config."
 
-        # Resolve __default__ to the best available reference image
-        if reference_image == "__default__":
-            reference_image = self._resolve_default_reference()
-
-        # Validate reference image if provided
-        ref_image_data: bytes | None = None
-        ref_mime: str = "image/jpeg"
+        # Normalize reference_image to list
+        ref_images: list[str] = []
         if reference_image:
-            ref_path = Path(reference_image)
+            if isinstance(reference_image, str):
+                if reference_image == "__default__":
+                    default_ref = self._resolve_default_reference()
+                    if default_ref:
+                        ref_images = [default_ref]
+                else:
+                    ref_images = [reference_image]
+            elif isinstance(reference_image, list):
+                ref_images = reference_image
+
+        # Validate and load all reference images
+        ref_images_data: list[tuple[bytes, str]] = []  # [(image_bytes, mime_type), ...]
+        for ref_path_str in ref_images:
+            ref_path = Path(ref_path_str)
             if not ref_path.exists():
-                return f"Error: Reference image not found: {reference_image}"
+                return f"Error: Reference image not found: {ref_path_str}"
             try:
-                ref_image_data = ref_path.read_bytes()
+                image_bytes = ref_path.read_bytes()
                 ext = ref_path.suffix.lower()
-                ref_mime = {
+                mime_type = {
                     '.png': 'image/png', '.jpg': 'image/jpeg',
                     '.jpeg': 'image/jpeg', '.webp': 'image/webp',
                     '.gif': 'image/gif',
                 }.get(ext, 'image/jpeg')
+                ref_images_data.append((image_bytes, mime_type))
             except Exception as e:
-                return f"Error reading reference image: {e}"
+                return f"Error reading reference image {ref_path_str}: {e}"
 
         # Route to appropriate implementation
         if self._is_gemini_model():
-            return await self._execute_gemini(prompt, size, ref_image_data, ref_mime)
+            return await self._execute_gemini(prompt, size, ref_images_data)
         elif self._is_grok_model():
-            if ref_image_data:
-                return await self._execute_grok_edit(prompt, ref_image_data, ref_mime)
+            if ref_images_data:
+                return await self._execute_grok_edit(prompt, ref_images_data)
             else:
                 return await self._execute_openai(prompt, size, quality, style)
         else:
@@ -249,10 +263,9 @@ class ImageGenTool(Tool):
         self,
         prompt: str,
         size: str | None,
-        ref_image_data: bytes | None = None,
-        ref_mime: str = "image/jpeg",
+        ref_images_data: list[tuple[bytes, str]] | None = None,
     ) -> str:
-        """Execute image generation/editing using Gemini format."""
+        """Execute image generation/editing using Gemini format (supports multiple reference images)."""
         aspect_ratio = "1:1"
         image_size = "2K"
 
@@ -287,14 +300,15 @@ class ImageGenTool(Tool):
         # Build content parts
         content_parts: list[dict[str, Any]] = []
 
-        # Add reference image if provided (img2img)
-        if ref_image_data:
-            content_parts.append({
-                "inlineData": {
-                    "mimeType": ref_mime,
-                    "data": base64.b64encode(ref_image_data).decode(),
-                }
-            })
+        # Add all reference images if provided (supports multi-image composition)
+        if ref_images_data:
+            for image_bytes, mime_type in ref_images_data:
+                content_parts.append({
+                    "inlineData": {
+                        "mimeType": mime_type,
+                        "data": base64.b64encode(image_bytes).decode(),
+                    }
+                })
 
         content_parts.append({"text": prompt})
 
@@ -309,7 +323,7 @@ class ImageGenTool(Tool):
             },
         }
 
-        mode = "img2img" if ref_image_data else "text2img"
+        mode = f"img2img ({len(ref_images_data)} images)" if ref_images_data else "text2img"
         logger.info(
             "ImageGen (Gemini {}): model={} aspectRatio={} size={} prompt={!r}",
             mode, self.model, aspect_ratio, image_size, prompt[:80],
@@ -343,32 +357,42 @@ class ImageGenTool(Tool):
     async def _execute_grok_edit(
         self,
         prompt: str,
-        ref_image_data: bytes,
-        ref_mime: str = "image/jpeg",
+        ref_images_data: list[tuple[bytes, str]],
     ) -> str:
-        """Execute image editing using Grok/xAI format."""
+        """Execute image editing using Grok/xAI format (supports multiple images)."""
         url = f"{self.base_url}/images/edits"
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self._api_key}",
         }
 
-        # Build data URI from image bytes
-        b64_str = base64.b64encode(ref_image_data).decode()
-        data_uri = f"data:{ref_mime};base64,{b64_str}"
-
-        body = {
-            "model": self.model,
-            "prompt": prompt,
-            "image": {
+        # Build images array with data URIs
+        images = []
+        for image_bytes, mime_type in ref_images_data:
+            b64_str = base64.b64encode(image_bytes).decode()
+            data_uri = f"data:{mime_type};base64,{b64_str}"
+            images.append({
                 "url": data_uri,
                 "type": "image_url",
-            },
-        }
+            })
+
+        # Use 'images' array for multiple images, or 'image' for single (backward compatible)
+        if len(images) == 1:
+            body = {
+                "model": self.model,
+                "prompt": prompt,
+                "image": images[0],
+            }
+        else:
+            body = {
+                "model": self.model,
+                "prompt": prompt,
+                "images": images,
+            }
 
         logger.info(
-            "ImageGen (Grok img2img): model={} prompt={!r}",
-            self.model, prompt[:80],
+            "ImageGen (Grok img2img): model={} images={} prompt={!r}",
+            self.model, len(images), prompt[:80],
         )
 
         try:
