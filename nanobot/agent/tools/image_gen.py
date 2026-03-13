@@ -44,8 +44,9 @@ class ImageGenTool(Tool):
     def description(self) -> str:
         return (
             "Generate an image from a text prompt. "
-            "Returns the local file path. Use the message "
-            "tool with the media parameter to send it."
+            "IMPORTANT: After generating, you MUST call the 'message' tool "
+            "with the returned file path in the 'media' parameter to send the image to the user. "
+            "Do not just reply with text - the user expects to receive the actual image."
         )
 
     @property
@@ -160,7 +161,7 @@ class ImageGenTool(Tool):
             path = media_dir / fname
             path.write_bytes(base64.b64decode(b64_data))
             logger.info("ImageGen: saved {}", path)
-            return f"Image saved to: {path}"
+            return f"✓ Image generated successfully.\nFile path: {path}\n\nNext step: Call the 'message' tool with media=['{path}'] to send this image to the user."
         except Exception as e:
             return f"Error saving image: {e}"
 
@@ -189,6 +190,6 @@ class ImageGenTool(Tool):
                 path.write_bytes(resp.content)
 
                 logger.info("ImageGen: downloaded and saved {}", path)
-                return f"Image saved to: {path}"
+                return f"✓ Image generated successfully.\nFile path: {path}\n\nNext step: Call the 'message' tool with media=['{path}'] to send this image to the user."
         except Exception as e:
             return f"Error downloading image: {e}"

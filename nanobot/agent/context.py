@@ -97,7 +97,12 @@ Your workspace is at: {workspace_path}
 - If a tool call fails, analyze the error before retrying with a different approach.
 - Ask for clarification when the request is ambiguous.
 
-Reply directly with text for conversations. Only use the 'message' tool to send to a specific chat channel."""
+## Communication Guidelines
+- Reply directly with text for normal conversations.
+- Use the 'message' tool in these situations:
+  * When sending media files (images, audio, documents) - use the media parameter
+  * When sending to a different chat channel than the current conversation
+  * When explicitly instructed by another tool (e.g., after image_gen)"""
 
     @staticmethod
     def _build_runtime_context(channel: str | None, chat_id: str | None) -> str:
