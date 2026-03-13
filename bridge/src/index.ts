@@ -21,13 +21,12 @@ if (!globalThis.crypto) {
 
 // Configure global fetch to use proxy from environment variables
 // This ensures Baileys' media uploads also use the proxy
-import { ProxyAgent } from 'undici';
+import { ProxyAgent, setGlobalDispatcher } from 'undici';
 const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.https_proxy || process.env.http_proxy;
 if (proxyUrl) {
   try {
     const proxyAgent = new ProxyAgent(proxyUrl);
-    // @ts-ignore - Override global fetch dispatcher
-    globalThis[Symbol.for('undici.globalDispatcher.1')] = proxyAgent;
+    setGlobalDispatcher(proxyAgent);
     console.log(`🌐 Global proxy configured: ${proxyUrl.replace(/:[^:@]*@/, ':***@')}`);
   } catch (error) {
     console.error('⚠️  Failed to configure global proxy:', error);
