@@ -19,15 +19,27 @@ if (!globalThis.crypto) {
   (globalThis as any).crypto = webcrypto;
 }
 
-// Configure global fetch to use proxy from environment variables
-// This ensures Baileys' media uploads also use the proxy
+// Configure proxy for ALL HTTP/HTTPS requests:
+// 1. undici setGlobalDispatcher → covers global fetch()
+// 2. Native http/https globalAgent → covers Baileys media uploads (which use https module directly)
 import { ProxyAgent, setGlobalDispatcher } from 'undici';
+import https from 'https';
+import http from 'http';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+
 const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.https_proxy || process.env.http_proxy;
 if (proxyUrl) {
   try {
-    const proxyAgent = new ProxyAgent(proxyUrl);
-    setGlobalDispatcher(proxyAgent);
-    console.log(`🌐 Global proxy configured: ${proxyUrl.replace(/:[^:@]*@/, ':***@')}`);
+    // Cover global fetch()
+    const undiciAgent = new ProxyAgent(proxyUrl);
+    setGlobalDispatcher(undiciAgent);
+
+    // Cover native https/http module (used by Baileys media upload)
+    const httpsAgent = new HttpsProxyAgent(proxyUrl);
+    https.globalAgent = httpsAgent as unknown as https.Agent;
+    http.globalAgent = httpsAgent as unknown as http.Agent;
+
+    console.log(`🌐 Global proxy configured (fetch + https): ${proxyUrl.replace(/:[^:@]*@/, ':***@')}`);
   } catch (error) {
     console.error('⚠️  Failed to configure global proxy:', error);
   }
