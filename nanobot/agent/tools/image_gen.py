@@ -180,10 +180,10 @@ class ImageGenTool(Tool):
                     "For multi-image composition, describe how to combine them (e.g., 'Put the person from image 1 and the cat from image 2 together at the beach').",
                 },
                 "reference_image": {
-                    "type": ["string", "array"],
-                    "items": {"type": "string"},
+                    "type": "string",
                     "description": "Optional file path(s) to source image(s) for image-to-image editing. "
-                    "Can be a single path string, or an array of paths for multi-image composition. "
+                    "For a single image, provide the file path. "
+                    "For multi-image composition, separate paths with '|' (e.g., '/path/a.jpg|__default__'). "
                     "When provided, the model will use these images as a base and apply the prompt as editing/composition instructions.",
                 },
                 "size": {
@@ -217,13 +217,16 @@ class ImageGenTool(Tool):
             return "Error: Image generation API key not configured. Set tools.imageGen.apiKey in config."
 
         # Normalize reference_image to list, resolving __default__ and __default__:scene
+        # Accepts: single path, "|"-separated paths, or list (from LLMs that support arrays)
         ref_images: list[str] = []
         if reference_image:
-            if isinstance(reference_image, str):
-                ref_images = [self._resolve_ref(reference_image)]
-            elif isinstance(reference_image, list):
-                ref_images = [self._resolve_ref(r) for r in reference_image]
-            ref_images = [r for r in ref_images if r]  # remove None
+            if isinstance(reference_image, list):
+                raw_paths = reference_image
+            elif isinstance(reference_image, str) and "|" in reference_image:
+                raw_paths = [p.strip() for p in reference_image.split("|") if p.strip()]
+            else:
+                raw_paths = [reference_image] if isinstance(reference_image, str) else []
+            ref_images = [r for r in (self._resolve_ref(p) for p in raw_paths) if r]
 
         # Validate and load all reference images
         ref_images_data: list[tuple[bytes, str]] = []  # [(image_bytes, mime_type), ...]
