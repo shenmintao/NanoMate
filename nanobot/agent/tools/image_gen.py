@@ -277,14 +277,16 @@ class ImageGenTool(Tool):
         body: dict[str, Any] = {
             "model": self.model,
             "prompt": prompt,
-            "size": size,
             "n": 1,
         }
 
-        if quality and quality != "standard":
-            body["quality"] = quality
-        if style and style != "vivid":
-            body["style"] = style
+        # Grok/xAI does not support size, quality, or style parameters
+        if not self._is_grok_model():
+            body["size"] = size
+            if quality and quality != "standard":
+                body["quality"] = quality
+            if style and style != "vivid":
+                body["style"] = style
 
         logger.info(
             "ImageGen (OpenAI): model={} size={} quality={} prompt={!r}",
