@@ -20,6 +20,7 @@ import { join, extname } from 'path';
 import { randomBytes } from 'crypto';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { SocksProxyAgent } from 'socks-proxy-agent';
+import { ProxyAgent as UndiciProxyAgent } from 'undici';
 
 const VERSION = '0.1.0';
 
@@ -98,8 +99,11 @@ export class WhatsAppClient {
     // Configure WebSocket proxy if available
     if (agent) {
       socketOptions.agent = agent;
-      // Also configure fetchAgent for HTTP requests
-      socketOptions.fetchAgent = agent;
+      // fetchAgent must be an undici Dispatcher (not http.Agent)
+      // because Baileys uses fetch() with { dispatcher: fetchAgent }
+      if (proxyUrl) {
+        socketOptions.fetchAgent = new UndiciProxyAgent(proxyUrl);
+      }
     }
 
     this.sock = makeWASocket(socketOptions);
