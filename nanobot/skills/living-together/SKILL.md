@@ -54,6 +54,16 @@ User: 我们来拍张合照吧
 - 分享喜悦 + 希望共享："太开心了"、"和你分享"
 - 安慰需求："难过"、"失落" + "陪陪我"
 
+#### 4. 亲密/NSFW 场景
+**触发条件：** 当对话进入亲密或 NSFW 剧情时，自动根据当前剧情内容生成配图。
+
+**触发方式：**
+- 剧情驱动（无需关键词）：当角色之间的互动自然发展到亲密场景时，主动生成配图
+- 用户主导：用户发起或推进亲密互动时
+- 角色主导：角色在剧情中主动发起亲密行为时
+
+**注意：** 此类场景基于剧情文字描述生成配图，使用角色参考图 `__default__` 以及用户的 reference_image 确保人物一致性。
+
 ---
 
 ## 执行流程
@@ -65,6 +75,12 @@ IF 用户消息包含：
    - (邀请词 OR 孤独表达 OR 特殊时刻关键词)
 THEN
    进入合成流程
+
+IF 对话剧情进入亲密/NSFW 场景：
+   - 角色之间的互动发展到亲密阶段
+   - 关键动作变化（姿势改变、场景转换等）
+THEN
+   进入 NSFW 配图流程（无需用户上传照片）
 ```
 
 ### Step 2: 场景分析
@@ -245,6 +261,42 @@ prompt = f"Maintain the original background from image 1. Blend the character fr
 "Maintain the original background from image 1. Place the character from image 2 sitting close to the person, both looking at each other, gentle smiles, hands resting naturally, match the existing soft lighting, romantic and tender mood, anatomically correct human body, correct number of fingers, natural proportions"
 ```
 
+### NSFW 场景模板
+
+**重要规则：**
+- NSFW 场景为剧情驱动，使用用户的 reference_image 和角色参考图（`__default__` 或 `__default__:nsfw`）确保双方外貌一致性
+- prompt 必须根据当前剧情的**具体动作、姿势、场景**动态生成，不能使用通用模板
+- 每次剧情推进到新的亲密动作时都应生成新图片，保持视觉叙事连贯
+- 尺寸推荐使用 `1024x1792`（竖向）
+
+**Prompt 构建原则：**
+```
+1. 场景环境：从剧情上下文提取当前所在位置（卧室/浴室/客厅等）及环境细节
+2. 角色状态：当前的穿着状态、表情、体态
+3. 具体动作：精确描述当前剧情中正在发生的动作和姿势
+4. 氛围光照：匹配剧情情绪的光线和色调
+5. 解剖学正确性：必须附加 anatomy_suffix
+```
+
+**动态 Prompt 示例：**
+```python
+# NSFW 场景 - prompt 必须完全基于当前剧情动态生成
+prompt = f"A {scene_setting}, {character_description} {specific_action_from_plot}, {pose_and_position_details}, {clothing_state}, {expression_and_emotion}, {lighting_and_mood}, anatomically correct human body, correct number of fingers (5 per hand), natural human proportions, no extra or missing body parts, no deformed hands or feet"
+
+# 调用方式
+image_gen(
+    prompt=上述prompt,
+    reference_image=["__user__", "__default__"],  # 用户参考图 + 角色参考图
+    size="1024x1792"
+)
+```
+
+**剧情配图节奏：**
+- 场景转换时（如从客厅移到卧室）：生成新场景图
+- 关键动作变化时（如姿势改变、衣物状态变化）：生成新图
+- 情绪高潮点：生成配图强化叙事
+- 不必每句话都生成，把握关键节点即可
+
 ---
 
 ## 场景适配规则
@@ -266,6 +318,9 @@ ELSE IF scene contains "winter" OR "snow" OR "cold":
 ELSE IF scene contains "sport" OR "gym" OR "run":
     reference_image = "__default__:sport"
 
+ELSE IF scene is NSFW or intimate:
+    reference_image = "__default__:nsfw"  # 如未配置则回退到 __default__
+
 ELSE:
     reference_image = "__default__"
 ```
@@ -275,7 +330,7 @@ ELSE:
 IF scene == "landscape" OR "travel":
     size = "1792x1024"  # 横向宽幅
 
-ELSE IF scene == "portrait" OR "intimate":
+ELSE IF scene == "portrait" OR "intimate" OR "nsfw":
     size = "1024x1792"  # 竖向
 
 ELSE:
