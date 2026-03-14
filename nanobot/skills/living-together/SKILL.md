@@ -1,3 +1,9 @@
+---
+name: living-together
+description: 生活伴侣视觉化技能 — 自动为旅游/日常/庆祝/亲密/NSFW场景生成合成照片或剧情配图。当对话涉及陪伴需求或进入亲密剧情时自动触发image_gen。
+always: true
+---
+
 # Living Together - 一起生活技能
 
 ## 核心理念
@@ -62,7 +68,7 @@ User: 我们来拍张合照吧
 - 用户主导：用户发起或推进亲密互动时
 - 角色主导：角色在剧情中主动发起亲密行为时
 
-**注意：** 此类场景基于剧情文字描述生成配图，使用角色参考图 `__default__` 以及用户的 reference_image 确保人物一致性。
+**注意：** 此类场景完全基于剧情文字描述生成配图，用户不会上传照片。仅使用角色参考图 `__default__` 保持角色外貌一致性。
 
 ---
 
@@ -264,7 +270,7 @@ prompt = f"Maintain the original background from image 1. Blend the character fr
 ### NSFW 场景模板
 
 **重要规则：**
-- NSFW 场景为剧情驱动，使用用户的 reference_image 和角色参考图（`__default__` 或 `__default__:nsfw`）确保双方外貌一致性
+- NSFW 场景为剧情驱动，用户不会上传照片，仅使用角色参考图（`__default__` 或 `__default__:nsfw`）
 - prompt 必须根据当前剧情的**具体动作、姿势、场景**动态生成，不能使用通用模板
 - 每次剧情推进到新的亲密动作时都应生成新图片，保持视觉叙事连贯
 - 尺寸推荐使用 `1024x1792`（竖向）
@@ -283,10 +289,10 @@ prompt = f"Maintain the original background from image 1. Blend the character fr
 # NSFW 场景 - prompt 必须完全基于当前剧情动态生成
 prompt = f"A {scene_setting}, {character_description} {specific_action_from_plot}, {pose_and_position_details}, {clothing_state}, {expression_and_emotion}, {lighting_and_mood}, anatomically correct human body, correct number of fingers (5 per hand), natural human proportions, no extra or missing body parts, no deformed hands or feet"
 
-# 调用方式
+# 调用方式（NSFW 场景无用户照片，仅用角色参考图）
 image_gen(
     prompt=上述prompt,
-    reference_image=["__user__", "__default__"],  # 用户参考图 + 角色参考图
+    reference_image=["__default__"],  # 仅角色参考图
     size="1024x1792"
 )
 ```
