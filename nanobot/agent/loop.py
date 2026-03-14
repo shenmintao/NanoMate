@@ -244,6 +244,15 @@ class AgentLoop:
                     logger.error("LLM returned error: {}", (clean or "")[:200])
                     final_content = clean or "Sorry, I encountered an error calling the AI model."
                     break
+                # If content is empty (e.g. only <think> tags), retry instead
+                # of returning a useless fallback message to the user.
+                if not clean:
+                    logger.warning("LLM returned empty content (iteration {}), retrying", iteration)
+                    messages = self.context.add_assistant_message(
+                        messages, clean, reasoning_content=response.reasoning_content,
+                        thinking_blocks=response.thinking_blocks,
+                    )
+                    continue
                 messages = self.context.add_assistant_message(
                     messages, clean, reasoning_content=response.reasoning_content,
                     thinking_blocks=response.thinking_blocks,
