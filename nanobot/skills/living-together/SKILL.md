@@ -352,12 +352,22 @@ prompt = f"...insert the character from image 2, {new_clothing}, standing next t
 ```
 
 ### 亲密场景模板
+
+**⚠️ 注意：** 如果有用户照片（image 1），可以尝试两人合成。如果只有角色参考图（无用户照片），
+必须使用 POV 视角，参考上方 NSFW 场景的防双胞胎规则。
+
 ```
-# 拥抱
+# 拥抱（有用户照片时）
 "Keep the original background from image 1. Blend the character from image 2 into a tender hug with the person, two people embracing with exactly two arms each, close embrace, emotional moment, match the existing lighting, shallow depth of field, anatomically correct human body, correct number of fingers, natural proportions, no extra limbs"
 
-# 牵手
+# 拥抱（无用户照片，仅角色参考图 — solo 构图，观看者不可见）
+"close-up, soft indoor lighting, solo, 1girl, character from reference image reaching arms toward viewer for an embrace, warm gentle smile, arms extended forward, upper body shot, viewer not visible in frame, shallow depth of field, anatomically correct human body, correct number of fingers, natural proportions, no extra limbs, solo focus, only one face visible, only one person, no twins, no duplicate characters, no second face"
+
+# 牵手（有用户照片时）
 "Preserve the original scene from image 1. Add the character from image 2 holding hands with the person, each person with exactly one hand holding the other's hand, intimate moment, match the existing lighting and atmosphere, anatomically correct hands with 5 fingers each, natural proportions"
+
+# 牵手（无用户照片 — 手部特写，避免出现第二个人）
+"close-up shot of two hands holding each other, one delicate female hand and one male hand, interlocked fingers, soft warm lighting, romantic intimate mood, only hands and wrists visible, no faces, anatomically correct hands with 5 fingers each, natural proportions, no extra fingers"
 
 # 注视
 "Maintain the original background from image 1. Place the character from image 2 sitting close to the person, both looking at each other, gentle smiles, hands resting naturally, match the existing soft lighting, romantic and tender mood, anatomically correct human body, correct number of fingers, natural proportions"
@@ -371,19 +381,52 @@ prompt = f"...insert the character from image 2, {new_clothing}, standing next t
 - 每次剧情推进到新的亲密动作时都应生成新图片，保持视觉叙事连贯
 - 尺寸推荐使用 `1024x1792`（竖向）
 
+**⚠️ 防止双胞胎/多头问题（关键）：**
+由于 NSFW 场景只传入一张角色参考图（无用户照片），AI 图像模型容易将同一张脸生成两次，
+导致画面中出现**双胞胎、双头、或两个一模一样的角色**。
+
+**即使使用了 POV 视角，如果 prompt 中提到"头靠在膝上"、"躺在怀里"等互动，模型仍然会
+渲染出观看者的面部，并使用同一张参考图的脸，导致双胞胎效果。**
+
+为彻底避免此问题，必须遵守以下规则：
+
+1. **画面中只允许出现一个完整角色**（AI 伴侣）。绝不在画面中出现第二个人的面部或完整身体。
+2. **观看者（用户）的身体只能以极其有限的方式出现**：
+   - ✅ 允许：一只手、一段手臂、肩膀轮廓（从画面边缘伸入）
+   - ❌ 禁止：面部、头部、完整上半身、任何可辨认面容的部位
+3. **对于需要两人互动的场景（如枕膝、拥抱），改用以下替代构图**：
+   - 枕膝 → 改为角色俯视视角："girl looking down at viewer with gentle smile, lap pillow POV, viewer not visible"
+   - 拥抱 → 改为角色正面特写："girl reaching arms toward viewer for a hug, viewer not visible in frame"
+   - 靠在胸口 → 改为角色低头视角："girl looking down warmly, holding viewer close, only viewer's hair top barely visible at bottom edge"
+4. **prompt 必须包含以下防重复约束**（附加在 anatomy_suffix 之后）：
+   `solo focus, only one face visible, only one person, no twins, no duplicate characters, no second face, no split screen, no mirror reflection`
+5. **推荐使用特写或半身构图**（close-up, upper body, portrait）而非全身构图，进一步减少生成多人的可能性
+
 **Prompt 构建原则：**
 ```
-1. 场景环境：从剧情上下文提取当前所在位置（卧室/浴室/客厅等）及环境细节
-2. 角色状态：当前的穿着状态、表情、体态
-3. 具体动作：精确描述当前剧情中正在发生的动作和姿势
-4. 氛围光照：匹配剧情情绪的光线和色调
-5. 解剖学正确性：必须附加 anatomy_suffix
+1. 人数：明确 "solo" 或 "only one person"，画面中只有 AI 伴侣一个完整角色
+2. 构图：优先使用 close-up（特写）或 upper body（半身），减少全身构图
+3. 观看者表现：绝不出现观看者的面部；最多出现一只手或手臂从画面边缘伸入
+4. 场景环境：从剧情上下文提取当前所在位置（卧室/浴室/客厅等）及环境细节
+5. 角色状态：当前的穿着状态、表情、体态
+6. 具体动作：精确描述当前剧情中正在发生的动作和姿势
+7. 氛围光照：匹配剧情情绪的光线和色调
+8. 防重复约束：必须附加 anatomy_suffix + anti_duplicate_suffix
 ```
 
 **动态 Prompt 示例：**
 ```python
-# NSFW 场景 - prompt 必须完全基于当前剧情动态生成
-prompt = f"A {scene_setting}, {character_description} {specific_action_from_plot}, {pose_and_position_details}, {clothing_state}, {expression_and_emotion}, {lighting_and_mood}, anatomically correct human body, correct number of fingers (5 per hand), natural human proportions, no extra or missing body parts, no deformed hands or feet"
+# 防重复后缀（所有 NSFW/亲密 prompt 必须附加）
+anti_duplicate_suffix = "solo focus, only one face visible, only one person, no twins, no duplicate characters, no second face, no split screen, no mirror reflection"
+
+# 示例1：角色独自展示（如换衣服、躺在床上、坐着等待等）
+prompt = f"close-up, {scene_setting}, solo, 1girl, {character_description}, {specific_action_from_plot}, {pose_and_position_details}, {clothing_state}, {expression_and_emotion}, looking at viewer, {lighting_and_mood}, anatomically correct human body, correct number of fingers (5 per hand), natural human proportions, no extra or missing body parts, {anti_duplicate_suffix}"
+
+# 示例2：枕膝场景 — 角色俯视构图，观看者完全不可见
+prompt = f"close-up from below, {scene_setting}, solo, 1girl, {character_description}, looking down at viewer with {expression}, lap pillow POV angle, gentle smile, {clothing_state}, {lighting_and_mood}, viewer not visible, anatomically correct human body, correct number of fingers (5 per hand), natural human proportions, {anti_duplicate_suffix}"
+
+# 示例3：需要表现互动 — 最多只露出一只手
+prompt = f"upper body shot, {scene_setting}, solo, 1girl, {character_description}, {specific_action_from_plot}, a single male hand gently touching her from edge of frame, {clothing_state}, {expression_and_emotion}, looking at viewer, {lighting_and_mood}, anatomically correct human body, correct number of fingers (5 per hand), natural human proportions, {anti_duplicate_suffix}"
 
 # 调用方式（NSFW 场景无用户照片，仅用角色参考图）
 image_gen(
@@ -391,6 +434,20 @@ image_gen(
     reference_image=["__default__"],  # 仅角色参考图
     size="1024x1792"
 )
+```
+
+**❌ 错误示例（会导致双胞胎/双头）：**
+```
+"Two people on a bed, girl lying on boy's lap..."           ← 两个完整人物，必变双胞胎
+"A couple embracing each other on the bed..."               ← 没有参考图区分两人，会变双胞胎
+"POV view, viewer's head resting on her lap, viewer's       ← 即使 POV，只要提到 viewer 的头/脸，
+ face visible..."                                              模型就会用同一张脸渲染，变成双头
+"Girl holding sleeping person in her arms..."               ← 第二个人也会用同一张脸
+```
+
+**✅ 正确示例（solo 构图，彻底避免双胞胎）：**
+```
+"close-up from below angle, bedroom with warm dim lamp light, solo, 1girl, silver-haired anime girl in lavender silk nightgown with lace trim, looking down at viewer with gentle loving smile, lap pillow POV, soft bokeh background, warm intimate lighting, viewer not visible, solo focus, only one face visible, only one person, no twins, no duplicate characters, no second face, anatomically correct, correct number of fingers..."
 ```
 
 **剧情配图节奏：**
