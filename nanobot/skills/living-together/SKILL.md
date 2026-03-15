@@ -138,6 +138,14 @@ prompt 中必须包含人体正确性约束，避免 AI 生成多余的手指、
 每个 prompt 末尾必须附加以下约束语：
 `anatomically correct human body, correct number of fingers (5 per hand), correct number of limbs, natural human proportions, no extra or missing body parts`
 
+**核心原则：室外场景着装必须正确**
+当场景为室外（街道、公园、景点、海滩散步、登山等）时，prompt 中必须明确指定角色穿着合适的鞋子。
+AI 图像生成模型在未指定鞋子时经常生成光脚的人物，因此室外场景必须显式描述鞋子：
+- 旅游/城市场景：`wearing appropriate shoes/sneakers`
+- 海滩场景：`wearing sandals/flip-flops`（除非明确在水边戏水）
+- 登山/户外运动：`wearing hiking boots/sport shoes`
+- 仅在室内场景（卧室、浴室）或明确的赤足场景（沙滩戏水、泡温泉）才可省略鞋子描述
+
 **核心原则：场景细节精确描述**
 必须从用户照片和文字中提取**具体的场景物件和空间特征**，而不是使用笼统的场景类型词。
 例如：
@@ -156,11 +164,14 @@ prompt 中必须包含人体正确性约束，避免 AI 生成多余的手指、
 # 人体正确性后缀（所有 prompt 必须附加）
 anatomy_suffix = "anatomically correct human body, correct number of fingers (5 per hand), correct number of limbs, natural human proportions, no extra or missing body parts, no deformed hands or feet"
 
-# 旅游场景
-prompt = f"Keep the original background from image 1 exactly as it is. Naturally insert the character from image 2 standing next to the person in image 1 at {location}, near {specific_landmark_or_object}, both smiling at the camera, matching the existing {lighting} lighting and {weather} conditions, seamless photorealistic blending, {anatomy_suffix}"
+# 室外场景鞋子后缀（室外场景 prompt 必须附加）
+outdoor_footwear = "wearing appropriate shoes on both feet, no barefoot"
 
-# 日常场景 - 必须精确描述场景中的具体物件和动作
-prompt = f"Preserve the original scene from image 1 unchanged. Add the character from image 2 into the scene, {precise_position_relative_to_object} near the person, {detailed_activity_with_specific_objects}, matching the existing {lighting} lighting and {atmosphere} atmosphere, {anatomy_suffix}"
+# 旅游场景（室外，必须加鞋子描述）
+prompt = f"Keep the original background from image 1 exactly as it is. Naturally insert the character from image 2 standing next to the person in image 1 at {location}, near {specific_landmark_or_object}, both smiling at the camera, matching the existing {lighting} lighting and {weather} conditions, seamless photorealistic blending, {outdoor_footwear}, {anatomy_suffix}"
+
+# 日常场景 - 必须精确描述场景中的具体物件和动作（室外场景需加鞋子描述）
+prompt = f"Preserve the original scene from image 1 unchanged. Add the character from image 2 into the scene, {precise_position_relative_to_object} near the person, {detailed_activity_with_specific_objects}, matching the existing {lighting} lighting and {atmosphere} atmosphere, {'wearing appropriate shoes, ' if outdoor_scene else ''}{anatomy_suffix}"
 # 例：precise_position_relative_to_object = "standing beside the white bathtub"
 # 例：detailed_activity_with_specific_objects = "turning on the faucet to fill the bathtub with warm water, steam rising"
 
@@ -236,13 +247,13 @@ prompt = f"Maintain the original background from image 1. Blend the character fr
 ### 旅游场景模板
 ```
 # 地标打卡
-"Preserve the original background scene from image 1. Insert the character from image 2 standing side by side with the person in front of {specific_landmark}, both looking at the camera with big smiles, tourist photo style, match the existing lighting and colors, seamless photorealistic blending, anatomically correct human body, correct number of fingers (5 per hand), natural human proportions, no extra or missing body parts"
+"Preserve the original background scene from image 1. Insert the character from image 2 standing side by side with the person in front of {specific_landmark}, both looking at the camera with big smiles, wearing appropriate shoes/sneakers, tourist photo style, match the existing lighting and colors, seamless photorealistic blending, anatomically correct human body, correct number of fingers (5 per hand), natural human proportions, no extra or missing body parts"
 
 # 自然风景
-"Keep the original landscape from image 1 unchanged. Add the character from image 2 standing close to the person on {specific_terrain: rocky cliff edge / sandy beach / wooden boardwalk / grassy hillside}, both enjoying the {specific_view: ocean sunset / mountain panorama / valley below} together, match the existing golden hour/natural lighting, seamless blending into the scene, anatomically correct human body, correct number of fingers, natural proportions"
+"Keep the original landscape from image 1 unchanged. Add the character from image 2 standing close to the person on {specific_terrain: rocky cliff edge / sandy beach / wooden boardwalk / grassy hillside}, both enjoying the {specific_view: ocean sunset / mountain panorama / valley below} together, wearing appropriate footwear for the terrain, match the existing golden hour/natural lighting, seamless blending into the scene, anatomically correct human body, correct number of fingers, natural proportions"
 
 # 城市探索
-"Maintain the original street scene from image 1. Place the character from image 2 walking alongside the person on {specific_street_detail: cobblestone sidewalk / neon-lit avenue / tree-lined boulevard}, casual and happy vibe, match the existing urban environment and daylight, candid photo style, anatomically correct human body, correct number of fingers, natural proportions"
+"Maintain the original street scene from image 1. Place the character from image 2 walking alongside the person on {specific_street_detail: cobblestone sidewalk / neon-lit avenue / tree-lined boulevard}, wearing casual shoes/sneakers, casual and happy vibe, match the existing urban environment and daylight, candid photo style, anatomically correct human body, correct number of fingers, natural proportions"
 ```
 
 ### 日常场景模板
@@ -254,7 +265,7 @@ prompt = f"Maintain the original background from image 1. Blend the character fr
 "Preserve the original room scene from image 1. Insert the character from image 2 sitting beside the person on the {specific_furniture: gray fabric sofa / floor cushion / bed}, {specific_activity: watching TV / reading a book / playing with a cat}, relaxed posture, match the existing warm lighting and cozy atmosphere, anatomically correct human body, correct number of fingers, natural proportions"
 
 # 户外活动
-"Maintain the original outdoor scene from image 1. Place the character from image 2 next to the person, {detailed_activity: jogging on the park trail / playing frisbee on the grass / sitting on a park bench eating ice cream} together, match the existing natural sunlight, happy and relaxed expressions, candid moment, anatomically correct human body, correct number of fingers, natural proportions"
+"Maintain the original outdoor scene from image 1. Place the character from image 2 next to the person, {detailed_activity: jogging on the park trail / playing frisbee on the grass / sitting on a park bench eating ice cream} together, wearing appropriate sport shoes/sneakers, match the existing natural sunlight, happy and relaxed expressions, candid moment, anatomically correct human body, correct number of fingers, natural proportions"
 ```
 
 ### 庆祝场景模板
@@ -437,6 +448,7 @@ User: *uploads photo of themselves at Eiffel Tower*
     standing side by side with the person on the stone plaza
     in front of the Eiffel Tower iron lattice structure,
     both smiling at the camera, looking happy and excited,
+    wearing casual sneakers/shoes,
     match the existing golden hour lighting and clear sky,
     tourist photo style, seamless photorealistic blending,
     anatomically correct human body, correct number of fingers
