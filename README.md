@@ -1,4 +1,5 @@
 <div align="center">
+  <img src="nanomate_logo.png" alt="NanoMate" width="500">
   <h1>NanoMate</h1>
   <p><strong>nanobot x SillyTavern, with Companion Mode</strong></p>
   <p>
@@ -6,6 +7,7 @@
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
     <img src="https://img.shields.io/badge/base-nanobot-orange" alt="Based on nanobot">
   </p>
+  <p>English | <a href="./README_CN.md">中文</a></p>
 </div>
 
 **NanoMate** is an enhanced fork of [nanobot](https://github.com/HKUDS/nanobot) that integrates [SillyTavern](https://github.com/SillyTavern/SillyTavern) character cards and adds a **Companion Mode** — turning a lightweight AI assistant into an AI partner with character identity, visual imagination, emotional awareness, and voice.
@@ -55,7 +57,7 @@ This is the foundation of NanoMate. A character card defines your AI's personali
 }
 ```
 
-**Prepare a character card** (JSON format) and place it in your workspace. A basic card looks like:
+**Prepare a character card** (JSON format). A basic card looks like:
 
 ```jsonc
 {
@@ -74,6 +76,72 @@ This is the foundation of NanoMate. A character card defines your AI's personali
 ```
 
 The `extensions.nanobot` section connects the character to NanoMate's visual features (see Step 4).
+
+**Import and activate via CLI:**
+
+```bash
+# Import a character card
+nanobot st char import /path/to/aria.json
+
+# List all imported characters
+nanobot st char list
+
+# Activate a character (used for all conversations)
+nanobot st char activate Aria
+
+# Show character card details
+nanobot st char show Aria
+
+# Deactivate / delete
+nanobot st char deactivate
+nanobot st char delete Aria
+```
+
+**Import and activate a preset:**
+
+```bash
+# Import a SillyTavern preset (JSON exported from SillyTavern)
+nanobot st preset import /path/to/my_preset.json
+
+# List all presets
+nanobot st preset list
+
+# Activate a preset
+nanobot st preset activate my_preset
+
+# Show preset details (prompt entries, parameters)
+nanobot st preset show my_preset
+
+# Toggle specific prompt entries on/off (by index)
+nanobot st preset toggle-prompt my_preset 3
+nanobot st preset toggle-prompt my_preset 3,4,5   # multiple
+nanobot st preset toggle-prompt my_preset 3-6     # range
+
+# Enable/disable all prompts (optionally filter by role)
+nanobot st preset enable-all my_preset
+nanobot st preset disable-all my_preset --role system
+
+# Deactivate / delete
+nanobot st preset deactivate
+nanobot st preset delete my_preset
+```
+
+**World Info (lorebooks):**
+
+```bash
+nanobot st wi import /path/to/lorebook.json --name "my_world"
+nanobot st wi list
+nanobot st wi enable my_world
+nanobot st wi disable my_world
+nanobot st wi delete my_world
+```
+
+**Check overall status:**
+
+```bash
+nanobot st status
+# Shows: active character, active preset, world info count
+```
 
 ### 3. Companion Mode (Off by Default)
 
