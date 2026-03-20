@@ -52,10 +52,19 @@ nanobot init
 // ~/.nanobot/config.json
 {
   "sillytavern": {
-    "enabled": true
+    "enabled": true,
+    "responseFilterTag": "speech"  // 可选：只发送 <speech>...</speech> 标签内的内容给用户
   }
 }
 ```
+
+`responseFilterTag` 适用于预设指示 AI 在对话中输出内心独白、动作描写或舞台指示的场景。例如，AI 回复：
+
+```
+*她微笑着走过来* <speech>嘿，欢迎回家！</speech>
+```
+
+设置 `"responseFilterTag": "speech"` 后，只会把 `嘿，欢迎回家！` 发送给用户。完整回复（包括内心独白和动作）仍保留在会话历史中以维持上下文连贯。如果回复中没有找到该标签，则返回完整内容作为兜底。
 
 **准备角色卡**（JSON 格式），示例：
 

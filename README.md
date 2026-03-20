@@ -52,10 +52,19 @@ This is the foundation of NanoMate. A character card defines your AI's personali
 // ~/.nanobot/config.json
 {
   "sillytavern": {
-    "enabled": true
+    "enabled": true,
+    "responseFilterTag": "speech"  // Optional: only send content within <speech>...</speech> to the user
   }
 }
 ```
+
+`responseFilterTag` is useful when your preset instructs the AI to output internal thoughts, actions, or stage directions alongside dialogue. For example, if the AI responds with:
+
+```
+*she smiles and walks over* <speech>Hey, welcome home!</speech>
+```
+
+Setting `"responseFilterTag": "speech"` will only send `Hey, welcome home!` to the user. The full response (including internal content) is still preserved in session history for context continuity. If the tag is not found in a response, the full content is returned as fallback.
 
 **Prepare a character card** (JSON format). A basic card looks like:
 
