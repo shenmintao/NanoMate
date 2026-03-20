@@ -16,18 +16,27 @@ _DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537
 
 class CustomProvider(LLMProvider):
 
-    def __init__(self, api_key: str = "no-key", api_base: str = "http://localhost:8000/v1",
-                 default_model: str = "default", extra_headers: dict[str, str] | None = None):
+    def __init__(
+        self,
+        api_key: str = "no-key",
+        api_base: str = "http://localhost:8000/v1",
+        default_model: str = "default",
+        extra_headers: dict[str, str] | None = None,
+    ):
         super().__init__(api_key, api_base)
         self.default_model = default_model
-        headers = {"x-session-affinity": uuid.uuid4().hex, "User-Agent": _DEFAULT_USER_AGENT}
-        if extra_headers:
-            headers.update(extra_headers)
-        # Keep affinity stable for this provider instance to improve backend cache locality.
+        # Keep affinity stable for this provider instance to improve backend cache locality,
+        # while still letting users attach provider-specific headers for custom gateways.
+        # User-Agent avoids Cloudflare 403 blocks on relay/proxy endpoints.
+        default_headers = {
+            "x-session-affinity": uuid.uuid4().hex,
+            "User-Agent": _DEFAULT_USER_AGENT,
+            **(extra_headers or {}),
+        }
         self._client = AsyncOpenAI(
             api_key=api_key,
             base_url=api_base,
-            default_headers=headers,
+            default_headers=default_headers,
         )
 
     async def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None,
@@ -50,6 +59,11 @@ class CustomProvider(LLMProvider):
             return LLMResponse(content=f"Error: {e}", finish_reason="error")
 
     def _parse(self, response: Any) -> LLMResponse:
+        if not response.choices:
+            return LLMResponse(
+                content="Error: API returned empty choices. This may indicate a temporary service issue or an invalid model response.",
+                finish_reason="error"
+            )
         choice = response.choices[0]
         msg = choice.message
         tool_calls = [
