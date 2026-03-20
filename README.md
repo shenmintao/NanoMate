@@ -53,18 +53,18 @@ This is the foundation of NanoMate. A character card defines your AI's personali
 {
   "sillytavern": {
     "enabled": true,
-    "responseFilterTag": "speech"  // Optional: only send content within <speech>...</speech> to the user
+    "responseFilterTag": "inner"  // Optional: filter out <inner>...</inner> from responses. Supports multiple: "inner,thought" or ["inner", "thought"]
   }
 }
 ```
 
-`responseFilterTag` is useful when your preset instructs the AI to output internal thoughts, actions, or stage directions alongside dialogue. For example, if the AI responds with:
+`responseFilterTag` strips tagged content from the AI's response before sending it to the user. This is useful when your preset instructs the AI to output internal thoughts or stage directions that should not be visible. For example, if the AI responds with:
 
 ```
-*she smiles and walks over* <speech>Hey, welcome home!</speech>
+<inner>She feels happy to see him come home.</inner> *smiles and walks over* Hey, welcome home!
 ```
 
-Setting `"responseFilterTag": "speech"` will only send `Hey, welcome home!` to the user. The full response (including internal content) is still preserved in session history for context continuity. If the tag is not found in a response, the full content is returned as fallback.
+Setting `"responseFilterTag": "inner"` will send `*smiles and walks over* Hey, welcome home!` to the user, with the `<inner>...</inner>` block removed. You can filter multiple tags using a comma-separated string (`"inner,thought"`) or a list (`["inner", "thought"]`). The full response (including filtered content) is still preserved in session history for context continuity. If no matching tags are found, the full content is returned as-is.
 
 **Prepare a character card** (JSON format). A basic card looks like:
 

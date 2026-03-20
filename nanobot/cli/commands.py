@@ -429,17 +429,18 @@ def _attach_sillytavern_hooks(agent, config: Config) -> None:
 
         agent.context.context_hook = _build_st_context
 
-        # Response filter hook: extract content within <tag>...</tag>
-        tag = st_cfg.response_filter_tag
-        if tag:
+        # Response filter hook: remove content within <tag>...</tag> (including the tags)
+        raw_tag = st_cfg.response_filter_tag
+        if raw_tag:
+            tags = raw_tag if isinstance(raw_tag, list) else [t.strip() for t in raw_tag.split(",") if t.strip()]
+
             def _response_filter(content: str) -> str:
                 if not content:
                     return content
-                pattern = f"<{tag}>(.*?)</{tag}>"
-                matches = re.findall(pattern, content, re.DOTALL)
-                if matches:
-                    return "\n\n".join(m.strip() for m in matches if m.strip())
-                return content  # Fallback: return full content if tag is missing
+                filtered = content
+                for tag in tags:
+                    filtered = re.sub(f"<{tag}>.*?</{tag}>", "", filtered, flags=re.DOTALL)
+                return filtered.strip() or content  # Fallback if everything was filtered
 
             agent.response_filter = _response_filter
 

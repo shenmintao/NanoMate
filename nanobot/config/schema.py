@@ -157,7 +157,7 @@ class SillyTavernConfig(Base):
     """Configuration for SillyTavern integration."""
 
     enabled: bool = False  # Global switch for SillyTavern features
-    response_filter_tag: str | None = None  # If set, only return content within <tag>...</tag>
+    response_filter_tag: str | list[str] | None = None  # Tag(s) whose content will be removed from responses
 
 
 class TTSConfig(Base):

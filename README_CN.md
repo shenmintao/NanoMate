@@ -53,18 +53,18 @@ nanobot init
 {
   "sillytavern": {
     "enabled": true,
-    "responseFilterTag": "speech"  // 可选：只发送 <speech>...</speech> 标签内的内容给用户
+    "responseFilterTag": "inner"  // 可选：过滤掉 <inner>...</inner> 标签内的内容。支持多标签："inner,thought" 或 ["inner", "thought"]
   }
 }
 ```
 
-`responseFilterTag` 适用于预设指示 AI 在对话中输出内心独白、动作描写或舞台指示的场景。例如，AI 回复：
+`responseFilterTag` 会将标签内的内容从 AI 回复中移除后再发送给用户。适用于预设指示 AI 输出内心独白或舞台指示的场景。例如，AI 回复：
 
 ```
-*她微笑着走过来* <speech>嘿，欢迎回家！</speech>
+<inner>她看到他回来很开心。</inner> *微笑着走过来* 嘿，欢迎回家！
 ```
 
-设置 `"responseFilterTag": "speech"` 后，只会把 `嘿，欢迎回家！` 发送给用户。完整回复（包括内心独白和动作）仍保留在会话历史中以维持上下文连贯。如果回复中没有找到该标签，则返回完整内容作为兜底。
+设置 `"responseFilterTag": "inner"` 后，`<inner>...</inner>` 部分会被移除，只发送 `*微笑着走过来* 嘿，欢迎回家！` 给用户。支持多标签：逗号分隔字符串（`"inner,thought"`）或列表（`["inner", "thought"]`）。完整回复仍保留在会话历史中以维持上下文连贯。如果未找到匹配标签，则返回完整内容。
 
 **准备角色卡**（JSON 格式），示例：
 
