@@ -80,6 +80,17 @@ class BaseChannel(ABC):
         """
         pass
 
+    async def send_delta(self, chat_id: str, delta: str, metadata: dict[str, Any] | None = None) -> None:
+        """Deliver a streaming text chunk. Override in subclass to enable streaming."""
+        pass
+
+    @property
+    def supports_streaming(self) -> bool:
+        """True when config enables streaming AND this subclass implements send_delta."""
+        cfg = self.config
+        streaming = cfg.get("streaming", False) if isinstance(cfg, dict) else getattr(cfg, "streaming", False)
+        return bool(streaming) and type(self).send_delta is not BaseChannel.send_delta
+
     def is_allowed(self, sender_id: str) -> bool:
         """Check if *sender_id* is permitted.  Empty list → deny all; ``"*"`` → allow all."""
         allow_list = getattr(self.config, "allow_from", [])
@@ -131,6 +142,10 @@ class BaseChannel(ABC):
             )
             return
 
+        meta = metadata or {}
+        if self.supports_streaming:
+            meta = {**meta, "_wants_stream": True}
+
         merge_window = self._get_merge_window()
 
         if merge_window <= 0:
@@ -141,7 +156,7 @@ class BaseChannel(ABC):
                 chat_id=str(chat_id),
                 content=content,
                 media=media or [],
-                metadata=metadata or {},
+                metadata=meta,
                 session_key_override=session_key,
             )
             await self.bus.publish_inbound(msg)
@@ -158,8 +173,8 @@ class BaseChannel(ABC):
             if media:
                 buf["media"].extend(media)
             # Keep latest metadata (merge dicts)
-            if metadata:
-                buf["metadata"].update(metadata)
+            if meta:
+                buf["metadata"].update(meta)
             logger.debug(
                 "{}: merged message into buffer for {} (now {} parts, {} media)",
                 self.name, merge_key, len(buf["contents"]), len(buf["media"]),
@@ -171,7 +186,7 @@ class BaseChannel(ABC):
                 "chat_id": str(chat_id),
                 "contents": [content] if content and content.strip() else [],
                 "media": list(media or []),
-                "metadata": dict(metadata or {}),
+                "metadata": dict(meta),
                 "session_key": session_key,
             }
             logger.debug("{}: new merge buffer for {}", self.name, merge_key)
