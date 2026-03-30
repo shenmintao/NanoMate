@@ -15,8 +15,8 @@ import makeWASocket, {
 import { Boom } from '@hapi/boom';
 import qrcode from 'qrcode-terminal';
 import pino from 'pino';
-import { writeFile, mkdir, readFile } from 'fs/promises';
-import { join, extname } from 'path';
+import { readFile, writeFile, mkdir } from 'fs/promises';
+import { join, basename } from 'path';
 import { randomBytes } from 'crypto';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { SocksProxyAgent } from 'socks-proxy-agent';
@@ -31,6 +31,7 @@ export interface InboundMessage {
   content: string;
   timestamp: number;
   isGroup: boolean;
+  wasMentioned?: boolean;
   media?: string[];
 }
 
@@ -48,6 +49,31 @@ export class WhatsAppClient {
 
   constructor(options: WhatsAppClientOptions) {
     this.options = options;
+  }
+
+  private normalizeJid(jid: string | undefined | null): string {
+    return (jid || '').split(':')[0];
+  }
+
+  private wasMentioned(msg: any): boolean {
+    if (!msg?.key?.remoteJid?.endsWith('@g.us')) return false;
+
+    const candidates = [
+      msg?.message?.extendedTextMessage?.contextInfo?.mentionedJid,
+      msg?.message?.imageMessage?.contextInfo?.mentionedJid,
+      msg?.message?.videoMessage?.contextInfo?.mentionedJid,
+      msg?.message?.documentMessage?.contextInfo?.mentionedJid,
+      msg?.message?.audioMessage?.contextInfo?.mentionedJid,
+    ];
+    const mentioned = candidates.flatMap((items) => (Array.isArray(items) ? items : []));
+    if (mentioned.length === 0) return false;
+
+    const selfIds = new Set(
+      [this.sock?.user?.id, this.sock?.user?.lid, this.sock?.user?.jid]
+        .map((jid) => this.normalizeJid(jid))
+        .filter(Boolean),
+    );
+    return mentioned.some((jid: string) => selfIds.has(this.normalizeJid(jid)));
   }
 
   async connect(): Promise<void> {
@@ -184,6 +210,7 @@ export class WhatsAppClient {
         if (!finalContent && mediaPaths.length === 0) continue;
 
         const isGroup = msg.key.remoteJid?.endsWith('@g.us') || false;
+        const wasMentioned = this.wasMentioned(msg);
 
         this.options.onMessage({
           id: msg.key.id || '',
@@ -192,6 +219,7 @@ export class WhatsAppClient {
           content: finalContent,
           timestamp: msg.messageTimestamp as number,
           isGroup,
+          ...(isGroup ? { wasMentioned } : {}),
           ...(mediaPaths.length > 0 ? { media: mediaPaths } : {}),
         });
       }
@@ -269,50 +297,29 @@ export class WhatsAppClient {
     await this.sock.sendMessage(to, { text });
   }
 
-  async sendMedia(to: string, mediaPath: string, caption?: string): Promise<void> {
+  async sendMedia(
+    to: string,
+    filePath: string,
+    mimetype: string,
+    caption?: string,
+    fileName?: string,
+  ): Promise<void> {
     if (!this.sock) {
       throw new Error('Not connected');
     }
 
-    try {
-      const buffer = await readFile(mediaPath);
-      const ext = extname(mediaPath).toLowerCase();
+    const buffer = await readFile(filePath);
+    const category = mimetype.split('/')[0];
 
-      // Determine media type from file extension
-      const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-      const videoExts = ['.mp4', '.mkv', '.avi', '.mov', '.3gp'];
-      const audioExts = ['.mp3', '.ogg', '.opus', '.m4a', '.aac'];
-
-      if (imageExts.includes(ext)) {
-        await this.sock.sendMessage(to, {
-          image: buffer,
-          caption: caption || undefined,
-        });
-      } else if (videoExts.includes(ext)) {
-        await this.sock.sendMessage(to, {
-          video: buffer,
-          caption: caption || undefined,
-        });
-      } else if (audioExts.includes(ext)) {
-        await this.sock.sendMessage(to, {
-          audio: buffer,
-          mimetype: 'audio/mp4',
-          ptt: false,
-        });
-      } else {
-        // Send as document for other file types
-        const filename = mediaPath.split('/').pop() || 'file';
-        await this.sock.sendMessage(to, {
-          document: buffer,
-          fileName: filename,
-          caption: caption || undefined,
-        });
-      }
-
-      console.log(`Sent media: ${mediaPath} to ${to}`);
-    } catch (err) {
-      console.error('Failed to send media:', err);
-      throw err;
+    if (category === 'image') {
+      await this.sock.sendMessage(to, { image: buffer, caption: caption || undefined, mimetype });
+    } else if (category === 'video') {
+      await this.sock.sendMessage(to, { video: buffer, caption: caption || undefined, mimetype });
+    } else if (category === 'audio') {
+      await this.sock.sendMessage(to, { audio: buffer, mimetype });
+    } else {
+      const name = fileName || basename(filePath);
+      await this.sock.sendMessage(to, { document: buffer, mimetype, fileName: name });
     }
   }
 
