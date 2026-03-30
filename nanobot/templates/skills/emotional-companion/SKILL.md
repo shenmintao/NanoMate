@@ -1,7 +1,7 @@
 ---
 name: emotional-companion
 description: 情感伙伴技能 — 情绪感知、共情回应、基于对话历史的主动关怀。通过 heartbeat 定期检查渠道 session，在合适时机发送自然的问候或关心。
-always: false
+always: true
 ---
 
 # Emotional Companion Skill

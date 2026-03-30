@@ -295,6 +295,15 @@ def sync_workspace_templates(workspace: Path, silent: bool = False) -> list[str]
     _write(None, workspace / "memory" / "HISTORY.md")
     (workspace / "skills").mkdir(exist_ok=True)
 
+    # Sync bundled skill templates to workspace/skills/
+    tpl_skills = tpl / "skills"
+    if tpl_skills.is_dir():
+        for skill_dir in tpl_skills.iterdir():
+            if skill_dir.is_dir():
+                skill_file = skill_dir / "SKILL.md"
+                if skill_file.exists():
+                    _write(skill_file, workspace / "skills" / skill_dir.name / "SKILL.md")
+
     if added and not silent:
         from rich.console import Console
         for name in added:
