@@ -143,6 +143,7 @@ class ImageGenConfig(Base):
     reference_image: str = ""  # Default reference image path for img2img (character avatar)
 
 
+
 class MCPServerConfig(Base):
     """MCP server connection configuration (stdio or HTTP)."""
 
@@ -159,7 +160,7 @@ class SillyTavernConfig(Base):
     """Configuration for SillyTavern integration."""
 
     enabled: bool = False  # Global switch for SillyTavern features
-    response_filter_tag: str | list[str] | None = None  # Tag(s) whose content will be removed from responses
+    response_filter_tag: list[str] | str | None = None  # Tag(s) whose content will be removed from responses
 
 
 class TTSConfig(Base):

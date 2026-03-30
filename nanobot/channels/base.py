@@ -195,8 +195,8 @@ class BaseChannel(ABC):
             if media:
                 buf["media"].extend(media)
             # Keep latest metadata (merge dicts)
-            if metadata:
-                buf["metadata"].update(metadata)
+            if meta:
+                buf["metadata"].update(meta)
             logger.debug(
                 "{}: merged message into buffer for {} (now {} parts, {} media)",
                 self.name, merge_key, len(buf["contents"]), len(buf["media"]),
@@ -208,7 +208,7 @@ class BaseChannel(ABC):
                 "chat_id": str(chat_id),
                 "contents": [content] if content and content.strip() else [],
                 "media": list(media or []),
-                "metadata": dict(metadata or {}),
+                "metadata": dict(meta),
                 "session_key": session_key,
             }
             logger.debug("{}: new merge buffer for {}", self.name, merge_key)

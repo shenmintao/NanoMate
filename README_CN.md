@@ -209,6 +209,14 @@ always: true    # 从 false 改为 true
 - 在合适的时间发送关心消息（不在睡眠时段打扰，控制频率）
 - 在 Memory 中维护情绪变化趋势
 
+<details>
+<summary>📱 实际效果展示（WhatsApp）</summary>
+<p align="center">
+  <img src="case/emotional_companion.jpg" width="300" alt="情感陪伴技能 WhatsApp 实际效果">
+</p>
+<p align="center"><em>AI 主动感知用户工作状态，发送关心消息、提供生活建议，并配合角色图片营造陪伴感。</em></p>
+</details>
+
 ### 4. 图像生成
 
 同居技能的视觉功能依赖图像生成。支持多个提供商：
