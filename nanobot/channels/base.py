@@ -185,6 +185,7 @@ class BaseChannel(ABC):
             return
 
         # --- Merge mode ---
+        meta = metadata or {}
         merge_key = f"{self.name}:{chat_id}:{sender_id}"
 
         if merge_key in self._merge_buffers:
