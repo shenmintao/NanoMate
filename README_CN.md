@@ -5,7 +5,7 @@
   <p>
     <img src="https://img.shields.io/badge/python-≥3.11-blue" alt="Python">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-    <img src="https://img.shields.io/badge/base-nanobot-orange" alt="Based on nanobot">
+    <img src="https://img.shields.io/badge/base-nanobot_v0.1.4.post6-orange" alt="Based on nanobot">
   </p>
   <p><a href="./README.md">English</a> | 中文</p>
 </div>
@@ -17,12 +17,12 @@
 | 功能 | nanobot | NanoMate |
 |---|---|---|
 | 角色身份 | 无 | 完整的 **SillyTavern** 集成（角色卡、记忆本、预设） |
-| 伴侣模式 | 无 | 同居技能 + 情感陪伴技能 |
+| 伴侣模式 | 无 | 同居技能 + 情感陪伴技能模板 |
 | 图像生成 | 基础 DALL-E | 多模型（Grok、Gemini、DALL-E）+ **多图合成** |
 | 参考图像 | 无 | 角色一致性图像生成，支持场景换装 |
 | 语音合成 | 无 | **Edge TTS** + **GPT-SoVITS** 自定义声线 |
 | WhatsApp 代理 | 基础 | HTTP/HTTPS/SOCKS5 代理支持 |
-| 翻译 | 无 | 忠实全文翻译技能 |
+| 翻译 | 内置 | 忠实全文翻译技能 |
 | 部署 | 基础 | Docker 化，含 Node.js 桥接，代理就绪 |
 
 ---
@@ -154,7 +154,9 @@ nanobot st status
 
 ### 3. 伴侣模式（默认关闭）
 
-伴侣模式在 SillyTavern 之上添加两个技能：**living-together**（视觉陪伴）和 **emotional-companion**（主动关怀）。两者**默认关闭**。实际的伴侣行为由你的 **SillyTavern 预设和角色卡**驱动 —— 技能提供触发规则和提示词模板，而预设和角色卡定义 AI 的人格、语气和交互边界。
+伴侣模式在 SillyTavern 之上添加两个技能模板：**living-together**（视觉陪伴）和 **emotional-companion**（主动关怀）。两者**默认关闭**。实际的伴侣行为由你的 **SillyTavern 预设和角色卡**驱动 —— 技能提供触发规则和提示词模板，而预设和角色卡定义 AI 的人格、语气和交互边界。
+
+伴侣技能位于 `nanobot/templates/skills/` 目录下，作为可定制的模板，与 `nanobot/skills/` 中的内置技能分开管理。
 
 #### 启用伴侣模式
 
@@ -170,7 +172,7 @@ nanobot st status
 在 SKILL.md 的 frontmatter 中设置 `always: true`：
 
 ```yaml
-# nanobot/skills/living-together/SKILL.md
+# nanobot/templates/skills/living-together/SKILL.md
 ---
 name: living-together
 always: true    # 从 false 改为 true
@@ -178,7 +180,7 @@ always: true    # 从 false 改为 true
 ```
 
 ```yaml
-# nanobot/skills/emotional-companion/SKILL.md
+# nanobot/templates/skills/emotional-companion/SKILL.md
 ---
 name: emotional-companion
 always: true    # 从 false 改为 true
@@ -187,7 +189,7 @@ always: true    # 从 false 改为 true
 
 **第 3 步：（可选）定制技能。**
 
-技能文件是模板。阅读 `nanobot/skills/living-together/SKILL.md` 和 `nanobot/skills/emotional-companion/SKILL.md`，根据你的角色和偏好调整触发规则、提示词模板和行为约束。
+技能文件是为用户定制而设计的模板。阅读 `nanobot/templates/skills/living-together/SKILL.md` 和 `nanobot/templates/skills/emotional-companion/SKILL.md`，根据你的角色和偏好调整触发规则、提示词模板和行为约束。
 
 #### 同居技能 (Living-Together)
 
@@ -354,17 +356,30 @@ docker compose up -d
 
 ```
 nanobot/
+  templates/skills/
+    living-together/     # 伴侣模式：共同时刻图像生成（可定制）
+    emotional-companion/ # 伴侣模式：主动关怀与情绪追踪（可定制）
   skills/
-    living-together/     # 伴侣模式：共同时刻图像生成
-    emotional-companion/ # 伴侣模式：主动关怀与情绪追踪
-    translate/           # 全文翻译
-  sillytavern/           # 角色卡、记忆本、预设集成
+    translate/           # 内置：忠实全文翻译
+    github/              # 内置：GitHub CLI 集成
+    weather/             # 内置：天气查询
+    summarize/           # 内置：URL/文件/YouTube 摘要
+    ...                  # + memory, cron, tmux, clawhub, skill-creator
+  sillytavern/           # 角色卡、记忆本、预设、世界信息集成
   providers/
-    tts.py               # Edge TTS + GPT-SoVITS
-    custom_provider.py   # 增强 User-Agent 和代理支持
+    tts.py               # Edge TTS + GPT-SoVITS 语音合成
+    openai_compat_provider.py  # OpenAI 兼容端点支持
+    anthropic_provider.py      # Anthropic Claude 提供商
+    transcription.py           # 音频转写
   agent/tools/
     image_gen.py         # 多模型图像生成与合成
+    shell.py             # Exec 工具（安全控制）
+  api/
+    server.py            # OpenAI 兼容 API（/v1/chat/completions）
 bridge/                  # WhatsApp 桥接（TypeScript/Node.js）
+docs/
+  PYTHON_SDK.md          # Python SDK 使用指南
+  CHANNEL_PLUGIN_GUIDE.md
 ```
 
 ## 保持更新
