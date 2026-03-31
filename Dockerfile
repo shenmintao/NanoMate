@@ -29,7 +29,7 @@ RUN uv pip install --system --no-cache .
 RUN git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
 
 WORKDIR /app/bridge
-RUN npm install && npm run build
+RUN npm install && chmod +x node_modules/.bin/* && npm run build
 WORKDIR /app
 
 # Create config directory
