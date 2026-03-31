@@ -5,7 +5,7 @@
   <p>
     <img src="https://img.shields.io/badge/python-≥3.11-blue" alt="Python">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-    <img src="https://img.shields.io/badge/base-nanobot-orange" alt="Based on nanobot">
+    <img src="https://img.shields.io/badge/base-nanobot_v0.1.4.post6-orange" alt="Based on nanobot">
   </p>
   <p>English | <a href="./README_CN.md">中文</a></p>
 </div>
@@ -17,12 +17,12 @@
 | Capability | nanobot | NanoMate |
 |---|---|---|
 | Character Identity | None | Full **SillyTavern** integration (character cards, memory books, presets) |
-| Companion Mode | None | Living-together + emotional companion skills |
+| Companion Mode | None | Living-together + emotional companion skill templates |
 | Image Generation | Basic DALL-E | Multi-model (Grok, Gemini, DALL-E) with **multi-image composition** |
 | Reference Images | None | Character-consistent image gen with scene-specific outfits |
 | Text-to-Speech | None | **Edge TTS** + **GPT-SoVITS** custom voice synthesis |
 | WhatsApp Proxy | Basic | HTTP/HTTPS/SOCKS5 proxy support with undici |
-| Translation | None | Faithful full-document translation skill |
+| Translation | Built-in | Faithful full-document translation skill |
 | Deployment | Basic | Dockerized with Node.js bridge, proxy-ready |
 
 ---
@@ -34,8 +34,8 @@
 NanoMate is fully compatible with nanobot. Start with the standard setup:
 
 ```bash
-git clone https://github.com/shenmintao/nanobot.git
-cd nanobot
+git clone https://github.com/shenmintao/NanoMate.git
+cd NanoMate
 pip install -e .
 nanobot init
 ```
@@ -154,7 +154,9 @@ nanobot st status
 
 ### 3. Companion Mode (Off by Default)
 
-Companion Mode adds two skills on top of SillyTavern: **living-together** (visual companionship) and **emotional-companion** (proactive care). Both are **off by default**. The actual companion behavior is driven by your **SillyTavern preset and character card** — the skills provide trigger rules and prompt templates, while the preset and card define the AI's personality, tone, and interaction boundaries.
+Companion Mode adds two skill templates on top of SillyTavern: **living-together** (visual companionship) and **emotional-companion** (proactive care). Both are **off by default**. The actual companion behavior is driven by your **SillyTavern preset and character card** — the skills provide trigger rules and prompt templates, while the preset and card define the AI's personality, tone, and interaction boundaries.
+
+The companion skills live in `nanobot/templates/skills/` as customizable templates, separate from the built-in skills in `nanobot/skills/`.
 
 #### Enabling Companion Mode
 
@@ -170,7 +172,7 @@ The preset controls *how* the AI talks (tone, boundaries, roleplay depth). The c
 Set `always: true` in the SKILL.md frontmatter:
 
 ```yaml
-# nanobot/skills/living-together/SKILL.md
+# nanobot/templates/skills/living-together/SKILL.md
 ---
 name: living-together
 always: true    # Change from false to true
@@ -178,7 +180,7 @@ always: true    # Change from false to true
 ```
 
 ```yaml
-# nanobot/skills/emotional-companion/SKILL.md
+# nanobot/templates/skills/emotional-companion/SKILL.md
 ---
 name: emotional-companion
 always: true    # Change from false to true
@@ -187,7 +189,7 @@ always: true    # Change from false to true
 
 **Step 3: (Optional) Customize the skills.**
 
-The skills are templates. Read them (`nanobot/skills/living-together/SKILL.md`, `nanobot/skills/emotional-companion/SKILL.md`) and adjust trigger rules, prompt templates, and behavioral constraints to match your character and preferences.
+The skills are templates designed for user customization. Read them (`nanobot/templates/skills/living-together/SKILL.md`, `nanobot/templates/skills/emotional-companion/SKILL.md`) and adjust trigger rules, prompt templates, and behavioral constraints to match your character and preferences.
 
 #### Living-Together Skill
 
@@ -346,17 +348,30 @@ The `docker-compose.yml` includes the WhatsApp bridge and proxy configuration.
 
 ```
 nanobot/
+  templates/skills/
+    living-together/     # Companion Mode: shared-moment image generation (customizable)
+    emotional-companion/ # Companion Mode: proactive care & mood tracking (customizable)
   skills/
-    living-together/     # Companion Mode: shared-moment image generation
-    emotional-companion/ # Companion Mode: proactive care & mood tracking
-    translate/           # Full-document translation
-  sillytavern/           # Character card, memory book, preset integration
+    translate/           # Built-in: faithful full-document translation
+    github/              # Built-in: GitHub CLI integration
+    weather/             # Built-in: weather info
+    summarize/           # Built-in: URL/file/YouTube summarization
+    ...                  # + memory, cron, tmux, clawhub, skill-creator
+  sillytavern/           # Character card, memory book, preset, world info integration
   providers/
-    tts.py               # Edge TTS + GPT-SoVITS
-    custom_provider.py   # Enhanced with User-Agent & proxy support
+    tts.py               # Edge TTS + GPT-SoVITS voice synthesis
+    openai_compat_provider.py  # OpenAI-compatible endpoint support
+    anthropic_provider.py      # Anthropic Claude provider
+    transcription.py           # Audio transcription
   agent/tools/
     image_gen.py         # Multi-model image generation & composition
+    shell.py             # Exec tool with security controls
+  api/
+    server.py            # OpenAI-compatible API (/v1/chat/completions)
 bridge/                  # WhatsApp bridge (TypeScript/Node.js)
+docs/
+  PYTHON_SDK.md          # Python SDK usage guide
+  CHANNEL_PLUGIN_GUIDE.md
 ```
 
 ## Staying Up to Date
