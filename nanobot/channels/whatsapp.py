@@ -268,11 +268,16 @@ class WhatsAppChannel(BaseChannel):
                 else:
                     content = "[Voice Message: Audio not available]"
 
-            # Build content tags matching Telegram's pattern: [image: /path] or [file: /path]
+            # Build content tags matching Telegram's pattern: [image: /path], [video: /path], or [file: /path]
             if media_paths:
                 for p in media_paths:
                     mime, _ = mimetypes.guess_type(p)
-                    media_type = "image" if mime and mime.startswith("image/") else "file"
+                    if mime and mime.startswith("image/"):
+                        media_type = "image"
+                    elif mime and mime.startswith("video/"):
+                        media_type = "video"
+                    else:
+                        media_type = "file"
                     media_tag = f"[{media_type}: {p}]"
                     content = f"{content}\n{media_tag}" if content else media_tag
 
