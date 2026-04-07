@@ -21,6 +21,7 @@ from nanobot.agent.tools.cron import CronTool
 from nanobot.agent.skills import BUILTIN_SKILLS_DIR
 from nanobot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
 from nanobot.agent.tools.image_gen import ImageGenTool
+from nanobot.agent.tools.video_gen import VideoGenTool
 from nanobot.agent.tools.message import MessageTool
 from nanobot.agent.tools.registry import ToolRegistry
 from nanobot.agent.tools.search import GlobTool, GrepTool
@@ -37,7 +38,7 @@ from nanobot.utils.helpers import image_placeholder_text, truncate_text
 from nanobot.utils.runtime import EMPTY_FINAL_RESPONSE_MESSAGE
 
 if TYPE_CHECKING:
-    from nanobot.config.schema import ChannelsConfig, ExecToolConfig, ImageGenConfig, WebToolsConfig
+    from nanobot.config.schema import ChannelsConfig, ExecToolConfig, ImageGenConfig, VideoGenConfig, WebToolsConfig
     from nanobot.cron.service import CronService
 
 
@@ -181,6 +182,7 @@ class AgentLoop:
         channels_config: ChannelsConfig | None = None,
         timezone: str | None = None,
         image_gen_config: ImageGenConfig | None = None,
+        video_gen_config: VideoGenConfig | None = None,
         hooks: list[AgentHook] | None = None,
     ):
         from nanobot.config.schema import ExecToolConfig, WebToolsConfig
@@ -211,6 +213,7 @@ class AgentLoop:
         self.cron_service = cron_service
         self.restrict_to_workspace = restrict_to_workspace
         self.image_gen_config = image_gen_config
+        self.video_gen_config = video_gen_config
         self._start_time = time.time()
         self._last_usage: dict[str, int] = {}
         self._extra_hooks: list[AgentHook] = hooks or []
@@ -297,6 +300,15 @@ class AgentLoop:
                 model=self.image_gen_config.model,
                 proxy=self.image_gen_config.proxy,
                 reference_image=self.image_gen_config.reference_image,
+            ))
+        if self.video_gen_config and self.video_gen_config.enabled:
+            self.tools.register(VideoGenTool(
+                api_key=self.video_gen_config.api_key,
+                base_url=self.video_gen_config.base_url,
+                model=self.video_gen_config.model,
+                proxy=self.video_gen_config.proxy,
+                default_duration=self.video_gen_config.default_duration,
+                default_resolution=self.video_gen_config.default_resolution,
             ))
 
     async def _connect_mcp(self) -> None:

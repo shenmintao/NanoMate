@@ -1,6 +1,6 @@
 ---
 name: living-together
-description: 生活伴侣视觉化技能 — 自动为旅游/日常/庆祝/亲密/NSFW场景生成合成照片或剧情配图。当对话涉及陪伴需求或进入亲密剧情时自动触发image_gen。
+description: 生活伴侣视觉化技能 — 自动为旅游/日常/庆祝/亲密/NSFW场景生成合成照片/视频或剧情配图/配视频。当对话涉及陪伴需求或进入亲密剧情时自动触发image_gen或video_gen。
 always: true
 ---
 
@@ -8,7 +8,7 @@ always: true
 
 ## 核心理念
 
-将 AI 伴侣从"对话工具"转变为"生活伙伴"，通过视觉化的共同体验创造真实的陪伴感。
+将 AI 伴侣从"对话工具"转变为"生活伙伴"，通过视觉化（图片和视频）的共同体验创造真实的陪伴感。
 
 ---
 
@@ -241,6 +241,256 @@ prompt = f"Maintain the original background from image 1. Blend the character fr
 
 ### Step 6: 记忆存储
 每次生成后自动记录到记忆系统（见后续章节）
+
+---
+
+## 视频生成功能
+
+### 🎬 何时生成视频 vs 图片
+
+视频生成（`video_gen`）适合有**动态感和时间流动**的场景，静态合照仍优先使用 `image_gen`。
+
+**优先使用 video_gen 的场景：**
+- 用户明确要求视频："录个视频"、"拍个小视频"、"动一下"
+- 自然风景 + 时间流动感："看日出"、"看烟花"、"看雪落下"
+- 动态活动："跳舞"、"跑步"、"做菜过程"、"放烟花"
+- 情感场景 + 动态表达："转圈"、"挥手"、"wink"、"飞吻"
+- 用户发送了视频（而非图片）
+
+**仍然使用 image_gen 的场景：**
+- 合照/打卡类："拍张合照"、"一起拍照"
+- 静态场景展示：咖啡馆、地标前合影
+- 亲密/NSFW 剧情配图（图片更可控）
+- 用户发送了图片（而非视频）
+
+### 视频生成触发规则
+
+```
+IF 用户消息包含视频需求关键词（"视频"、"录一段"、"动起来"、"动态"）：
+    → 使用 video_gen
+
+ELSE IF 用户发送了视频文件：
+    → 使用 video_gen（edit 或 extend 模式）
+
+ELSE IF 场景具有强动态感（烟花、日出日落、舞蹈、奔跑、下雪）：
+    → 使用 video_gen
+
+ELSE：
+    → 使用 image_gen（默认）
+```
+
+### 视频生成执行流程
+
+#### Step 1: 场景分析（与图片生成相同）
+分析用户消息中的场景、情绪、陪伴需求。额外判断是否适合生成视频。
+
+#### Step 2: 选择视频模式
+
+```
+IF 用户发送了图片 + 想要动态效果：
+    mode = "generate"  # 图片转视频（image-to-video）
+    source_image = 用户上传的图片路径
+
+ELSE IF 用户发送了视频 + 想要修改/添加角色：
+    mode = "edit"  # 视频编辑
+    source_video = 用户上传的视频路径
+
+ELSE IF 用户发送了视频 + 想要延续/接着拍：
+    mode = "extend"  # 视频续写
+    source_video = 用户上传的视频路径
+
+ELSE：
+    mode = "generate"  # 纯文本生成视频
+```
+
+#### Step 3: 构建视频 Prompt
+
+视频 prompt 与图片 prompt 的关键区别：
+- **必须描述动作和运动**：不是静态姿势，而是动态过程
+- **描述时间变化**：从什么状态到什么状态
+- **镜头运动**：平移、推进、环绕等
+
+```python
+# 旅游/风景视频
+prompt = f"Slow cinematic pan across {location}, {character_description} walking into frame from the left, looking around in wonder at {specific_scenery}, gentle breeze moving hair, {lighting} lighting, {weather} conditions, high quality, photorealistic"
+
+# 日常生活视频
+prompt = f"Cozy {scene_setting}, {character_description} {dynamic_action}, natural body movement, {expression}, warm {lighting} lighting, slice of life moment, smooth camera, high quality"
+
+# 情感表达视频
+prompt = f"Close-up shot, {character_description} looking at camera with {emotion} expression, then {action} (e.g., smiles warmly / waves gently / blows a kiss), soft {lighting} lighting, shallow depth of field, intimate mood, high quality"
+
+# 庆祝场景视频
+prompt = f"{scene_setting}, {character_description} celebrating {event}, {celebration_action} (e.g., clapping hands / jumping with joy / raising a glass), festive atmosphere, {lighting}, high quality"
+
+# 自然延时/动态风景
+prompt = f"Time-lapse of {natural_scene}, {character_description} standing still watching, {time_progression} (e.g., sunset colors shifting / snow falling / cherry blossoms drifting), serene atmosphere, cinematic quality"
+```
+
+#### Step 4: 调用 video_gen 工具
+
+**文本生成视频（最常用）：**
+```json
+{
+  "tool": "video_gen",
+  "parameters": {
+    "prompt": "[上一步生成的 prompt]",
+    "mode": "generate",
+    "duration": 6,
+    "aspect_ratio": "16:9",
+    "resolution": "720p"
+  }
+}
+```
+
+**图片转视频（用户发送了图片，想看动态效果）：**
+```json
+{
+  "tool": "video_gen",
+  "parameters": {
+    "prompt": "Gentle animation: the person in the photo smiles and waves, soft breeze moving hair, natural subtle motion",
+    "source_image": "/path/to/user_photo.jpg",
+    "mode": "generate",
+    "duration": 6,
+    "aspect_ratio": "16:9"
+  }
+}
+```
+
+**视频编辑（在用户视频中添加/修改元素）：**
+```json
+{
+  "tool": "video_gen",
+  "parameters": {
+    "prompt": "Add gentle falling cherry blossom petals to the scene",
+    "source_video": "/path/to/user_video.mp4",
+    "mode": "edit"
+  }
+}
+```
+
+**视频续写（延续用户视频）：**
+```json
+{
+  "tool": "video_gen",
+  "parameters": {
+    "prompt": "The camera slowly pans to reveal a beautiful sunset over the ocean, warm golden light",
+    "source_video": "/path/to/user_video.mp4",
+    "mode": "extend",
+    "duration": 6
+  }
+}
+```
+
+**使用参考图保持角色一致性：**
+```json
+{
+  "tool": "video_gen",
+  "parameters": {
+    "prompt": "slow zoom in, the character from <IMAGE_1> walks gracefully along the beach at sunset, gentle waves, wind in hair, looking at camera with warm smile, cinematic quality",
+    "reference_images": ["__default__"],
+    "mode": "generate",
+    "duration": 8,
+    "aspect_ratio": "16:9",
+    "resolution": "720p"
+  }
+}
+```
+
+注意：使用 `reference_images` 时，在 prompt 中用 `<IMAGE_1>`, `<IMAGE_2>` 等占位符引用对应的参考图。
+
+#### Step 5: 发送视频
+
+视频生成完成后，必须调用 `message` 工具发送给用户：
+
+```json
+{
+  "tool": "message",
+  "parameters": {
+    "content": "看！我给你录了一段小视频~ ✨",
+    "media": ["/path/to/generated/video.mp4"]
+  }
+}
+```
+
+### 视频 Prompt 模板库
+
+#### 旅游/风景视频
+```
+# 地标打卡动态
+"Slow cinematic establishing shot of {landmark}, then the character from <IMAGE_1> walks into frame, looks up at {landmark} in awe, turns to camera and smiles, wearing {outfit}, golden hour lighting, travel vlog style, high quality"
+
+# 自然风景享受
+"Wide shot of {scenic_view}, the character from <IMAGE_1> standing at the viewpoint, wind gently blowing hair, slowly raises phone to take a selfie, then lowers it and looks out at the view peacefully, natural lighting, cinematic"
+
+# 海边漫步
+"The character from <IMAGE_1> walking barefoot along the shoreline, waves gently washing over feet, wearing summer dress, soft golden sunset light reflecting on water, camera follows from the side, peaceful serene mood, high quality slow motion"
+```
+
+#### 日常生活视频
+```
+# 做饭过程
+"Cozy kitchen scene, the character from <IMAGE_1> at the counter, chopping vegetables with careful movements, then stirring a pot on the stove, steam rising, warm indoor lighting, homey atmosphere, smooth camera"
+
+# 咖啡时光
+"Cafe window seat, the character from <IMAGE_1> lifting a latte cup, taking a sip, then looking out the window with a content smile, soft natural light from window, cozy cafe ambiance, slow gentle motion"
+
+# 起床/早安
+"Soft morning light filtering through curtains, the character from <IMAGE_1> slowly stretching in bed, sitting up, rubbing eyes with a sleepy smile, then looking at camera and waving good morning, warm golden tones, intimate close-up"
+```
+
+#### 情感表达视频
+```
+# 飞吻/wink
+"Close-up portrait, the character from <IMAGE_1> looking at camera with playful expression, winks and blows a kiss toward camera, soft blurred background, warm lighting, flirty charming mood, shallow depth of field"
+
+# 安慰/温暖
+"Soft close-up, the character from <IMAGE_1> looking at camera with gentle caring eyes, slowly reaches hand toward camera as if to touch viewer's face, soft warm lighting, comforting intimate mood, slight head tilt"
+
+# 开心庆祝
+"The character from <IMAGE_1> jumping with joy, arms raised in celebration, big bright smile, confetti falling around, festive colorful lighting, slow motion capture of the joyful moment, high quality"
+```
+
+#### 特殊效果视频
+```
+# 日出/日落延时
+"Time-lapse of breathtaking sunset over {location}, colors shifting from golden to deep orange to purple, the character from <IMAGE_1> silhouette standing still watching, clouds moving slowly, cinematic wide shot"
+
+# 下雪场景
+"Gentle snow falling in a quiet {setting}, the character from <IMAGE_1> catching snowflakes, looking up with wonder, wearing warm winter coat and scarf, soft diffused winter light, peaceful magical atmosphere"
+
+# 烟花场景
+"Night scene, colorful fireworks bursting in the sky above {location}, the character from <IMAGE_1> watching with amazement, face lit by the firework colors, camera slowly zooms out to reveal the full spectacular display"
+```
+
+### 视频参数选择指南
+
+```
+# 时长选择
+IF 简单动作/表情（挥手、wink）：duration = 4-6
+IF 场景活动（走路、做饭）：duration = 8-10
+IF 延时/风景：duration = 10-15
+IF 视频续写：duration = 4-8
+
+# 画幅选择
+IF 风景/旅游/全身活动：aspect_ratio = "16:9"
+IF 人像/表情特写/竖屏：aspect_ratio = "9:16"
+IF 通用/方形社交媒体：aspect_ratio = "1:1"
+
+# 分辨率选择
+IF 想要更高质量且不急：resolution = "720p"
+IF 想要更快生成速度：resolution = "480p"
+```
+
+### 视频生成注意事项
+
+1. **耐心等待**：视频生成通常需要 1-5 分钟，比图片慢很多。可以先发文字消息告知用户正在生成。
+2. **Prompt 简洁清晰**：视频 prompt 不宜过长，重点描述动作和氛围，避免过多细节堆砌。
+3. **动作自然**：描述的动作应简单自然，避免复杂的多步骤动作（容易生成不自然的结果）。
+4. **角色一致性**：使用 `reference_images` 参数并在 prompt 中用 `<IMAGE_1>` 引用，保持角色外观一致。
+5. **图片转视频效果最好**：如果有高质量的静态图片，使用 `source_image` 参数让图片"动起来"通常效果最好。
+6. **视频编辑限制**：输入视频最长 8.7 秒，且不支持自定义时长/画幅/分辨率。
+7. **视频续写限制**：输入视频需 2-15 秒，续写时长 2-10 秒。
 
 ---
 
@@ -538,16 +788,17 @@ ELSE:
 当满足触发条件时，依次执行：
 
 1. ✓ **分析用户消息** - 提取场景、情绪、陪伴需求
-2. ✓ **检查着装记忆** - 从 Memory 读取角色当前着装状态，判断是否需要换装
-3. ✓ **选择合适的 prompt 模板**
-4. ✓ **构建 prompt（含着装描述）** - 复用 Memory 中的着装或根据场景选择新着装
-5. ✓ **确定参考图** - 用 `__default__` 或 `__default__:场景`（如 `__default__:beach`）
-6. ✓ **调用 image_gen 工具**
-7. ✓ **更新着装记忆** - 将本次着装描述写入 Memory
-8. ✓ **生成情感回应** - 温暖、真诚的文字
-9. ✓ **发送合成照片** - 使用 message 工具
-10. ✓ **记录到记忆** - 保存体验到 Memory
-11. ✓ **继续对话** - 自然过渡到其他话题
+2. ✓ **判断图片 vs 视频** - 根据场景动态感和用户意图选择 `image_gen` 或 `video_gen`
+3. ✓ **检查着装记忆** - 从 Memory 读取角色当前着装状态，判断是否需要换装
+4. ✓ **选择合适的 prompt 模板**（图片模板或视频模板）
+5. ✓ **构建 prompt** - 图片 prompt 含着装描述和解剖学约束；视频 prompt 重点描述动作和运动
+6. ✓ **确定参考图** - 用 `__default__` 或 `__default__:场景`；视频使用 `reference_images` 参数
+7. ✓ **调用 image_gen 或 video_gen 工具**（视频生成较慢，可先发文字提示用户等待）
+8. ✓ **更新着装记忆** - 将本次着装描述写入 Memory
+9. ✓ **生成情感回应** - 温暖、真诚的文字
+10. ✓ **发送合成照片/视频** - 使用 message 工具
+11. ✓ **记录到记忆** - 保存体验到 Memory
+12. ✓ **继续对话** - 自然过渡到其他话题
 
 ---
 
@@ -656,4 +907,4 @@ Memory saved: YES
 
 ---
 
-**让每一次分享都成为共同的回忆！** ❤️
+**让每一次分享都成为共同的回忆 — 用照片定格瞬间，用视频留住时光！** ❤️

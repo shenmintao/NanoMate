@@ -756,6 +756,7 @@ def gateway(
         channels_config=config.channels,
         timezone=config.agents.defaults.timezone,
         image_gen_config=config.tools.image_gen,
+        video_gen_config=config.tools.video_gen,
     )
     _attach_sillytavern_hooks(agent, config)
 
@@ -989,6 +990,7 @@ def agent(
         channels_config=config.channels,
         timezone=config.agents.defaults.timezone,
         image_gen_config=config.tools.image_gen,
+        video_gen_config=config.tools.video_gen,
     )
     _attach_sillytavern_hooks(agent_loop, config)
     restart_notice = consume_restart_notice_from_env()

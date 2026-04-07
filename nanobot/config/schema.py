@@ -192,6 +192,18 @@ class ImageGenConfig(Base):
 
 
 
+class VideoGenConfig(Base):
+    """Video generation tool configuration."""
+
+    enabled: bool = False
+    api_key: str = ""  # API key for the video generation service (xAI)
+    base_url: str = "https://api.x.ai/v1"  # Base URL for the video API
+    model: str = "grok-imagine-video"  # Video generation model
+    proxy: str | None = None  # Optional HTTP/SOCKS proxy
+    default_duration: int = 6  # Default video duration in seconds (1-15)
+    default_resolution: str = "480p"  # Default resolution: "480p" or "720p"
+
+
 class MCPServerConfig(Base):
     """MCP server connection configuration (stdio or HTTP)."""
 
@@ -242,6 +254,7 @@ class ToolsConfig(Base):
     web: WebToolsConfig = Field(default_factory=WebToolsConfig)
     exec: ExecToolConfig = Field(default_factory=ExecToolConfig)
     image_gen: ImageGenConfig = Field(default_factory=ImageGenConfig, alias="imageGen")
+    video_gen: VideoGenConfig = Field(default_factory=VideoGenConfig, alias="videoGen")
     restrict_to_workspace: bool = False  # restrict all tool access to workspace directory
     mcp_servers: dict[str, MCPServerConfig] = Field(default_factory=dict)
     ssrf_whitelist: list[str] = Field(default_factory=list)  # CIDR ranges to exempt from SSRF blocking (e.g. ["100.64.0.0/10"] for Tailscale)
