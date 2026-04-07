@@ -5,12 +5,14 @@
   <p>
     <img src="https://img.shields.io/badge/python-≥3.11-blue" alt="Python">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-    <img src="https://img.shields.io/badge/base-nanobot_v0.1.4.post6-orange" alt="Based on nanobot">
+    <img src="https://img.shields.io/badge/base-nanobot_v0.1.5-orange" alt="Based on nanobot">
   </p>
   <p><a href="./README.md">English</a> | 中文</p>
 </div>
 
-**NanoMate** 是 [nanobot](https://github.com/HKUDS/nanobot) 的增强分支，集成了 [SillyTavern](https://github.com/SillyTavern/SillyTavern) 角色卡系统，并新增**伴侣模式** —— 将轻量级 AI 助手变成拥有角色身份、视觉想象、情感感知和语音能力的 AI 伙伴。
+**NanoMate** 是 [nanobot](https://github.com/HKUDS/nanobot) 的增强分支，集成了 [SillyTavern](https://github.com/SillyTavern/SillyTavern) 角色卡系统，并新增**伴侣模式** —— 将轻量级 AI Agent 变成拥有角色身份、视觉想象、情感感知和语音能力的 AI 伙伴。
+
+> 当前同步上游 nanobot **v0.1.5**（2026-04-05）。
 
 ## 与 nanobot 有什么不同？
 
@@ -24,6 +26,26 @@
 | WhatsApp 代理 | 基础 | HTTP/HTTPS/SOCKS5 代理支持 |
 | 翻译 | 内置 | 忠实全文翻译技能 |
 | 部署 | 基础 | Docker 化，含 Node.js 桥接，代理就绪 |
+
+### 上游 v0.1.5 亮点（已包含在 NanoMate 中）
+
+- **Dream 两阶段记忆** —— 对话历史通过 Dream 整合为长期记忆，支持 Git 版本控制
+- **Jinja2 响应模板** —— Agent 响应和记忆整合使用 Jinja2 模板引擎
+- **内置 grep/glob 搜索工具** —— Agent 可原生搜索代码库
+- **bwrap 沙箱** —— exec 工具调用可通过 bubblewrap 沙箱隔离（Linux）
+- **运行时加固** —— 长时间运行任务更加可靠，增加重试和清理保护
+- **统一语音转写** —— 所有频道支持 OpenAI/Groq Whisper
+- **Langfuse 可观测性** —— 可选集成，监控 Agent 行为
+- **环境变量插值** —— 在 config.json 中使用 `${VAR}` 引用密钥
+- **新提供商** —— GPT-5、小米 MiMo、千帆、GitHub Copilot OAuth
+- **OpenAI Responses API** —— 原生支持 OpenAI 的 responses 端点
+- **Matrix 流式输出 + 密码登录** —— 流式支持和简化的端到端加密设置
+- **Discord.py 迁移** —— 通过 discord.py 实现稳定的 Discord 频道
+- **微信多模态** —— 语音、输入指示器、二维码恢复、媒体增强
+- **邮件附件** —— 可配置的入站附件提取
+- **nanobot-api** Docker 服务 —— 隔离的 OpenAI 兼容 API 端点
+- **安全** —— API 绑定 localhost、exec 环境变量泄露防护、SSRF 白名单
+- **智能重试** —— 尊重 Retry-After 头部，结构化错误分类
 
 ---
 
@@ -356,9 +378,11 @@ docker compose up -d
 
 ```
 nanobot/
-  templates/skills/
-    living-together/     # 伴侣模式：共同时刻图像生成（可定制）
-    emotional-companion/ # 伴侣模式：主动关怀与情绪追踪（可定制）
+  templates/
+    skills/
+      living-together/     # 伴侣模式：共同时刻图像生成（可定制）
+      emotional-companion/ # 伴侣模式：主动关怀与情绪追踪（可定制）
+    memory/                # Dream 记忆整合 Jinja2 模板（上游 v0.1.5）
   skills/
     translate/           # 内置：忠实全文翻译
     github/              # 内置：GitHub CLI 集成
@@ -370,10 +394,15 @@ nanobot/
     tts.py               # Edge TTS + GPT-SoVITS 语音合成
     openai_compat_provider.py  # OpenAI 兼容端点支持
     anthropic_provider.py      # Anthropic Claude 提供商
-    transcription.py           # 音频转写
+    transcription.py           # 统一音频转写（OpenAI/Groq Whisper）
   agent/tools/
     image_gen.py         # 多模型图像生成与合成
-    shell.py             # Exec 工具（安全控制）
+    search.py            # 内置 grep/glob 搜索工具（上游 v0.1.5）
+    shell.py             # Exec 工具（bwrap 沙箱支持）
+  utils/
+    gitstore.py          # Git 版本控制记忆存储（上游 v0.1.5）
+    runtime.py           # 运行时响应保护（上游 v0.1.5）
+    searchusage.py       # 网络搜索用量追踪（上游 v0.1.5）
   api/
     server.py            # OpenAI 兼容 API（/v1/chat/completions）
 bridge/                  # WhatsApp 桥接（TypeScript/Node.js）

@@ -5,12 +5,14 @@
   <p>
     <img src="https://img.shields.io/badge/python-≥3.11-blue" alt="Python">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-    <img src="https://img.shields.io/badge/base-nanobot_v0.1.4.post6-orange" alt="Based on nanobot">
+    <img src="https://img.shields.io/badge/base-nanobot_v0.1.5-orange" alt="Based on nanobot">
   </p>
   <p>English | <a href="./README_CN.md">中文</a></p>
 </div>
 
-**NanoMate** is an enhanced fork of [nanobot](https://github.com/HKUDS/nanobot) that integrates [SillyTavern](https://github.com/SillyTavern/SillyTavern) character cards and adds a **Companion Mode** — turning a lightweight AI assistant into an AI partner with character identity, visual imagination, emotional awareness, and voice.
+**NanoMate** is an enhanced fork of [nanobot](https://github.com/HKUDS/nanobot) that integrates [SillyTavern](https://github.com/SillyTavern/SillyTavern) character cards and adds a **Companion Mode** — turning a lightweight AI agent into an AI partner with character identity, visual imagination, emotional awareness, and voice.
+
+> Currently synced with upstream nanobot **v0.1.5** (2026-04-05).
 
 ## What's Different from nanobot?
 
@@ -24,6 +26,26 @@
 | WhatsApp Proxy | Basic | HTTP/HTTPS/SOCKS5 proxy support with undici |
 | Translation | Built-in | Faithful full-document translation skill |
 | Deployment | Basic | Dockerized with Node.js bridge, proxy-ready |
+
+### Upstream v0.1.5 Highlights (included in NanoMate)
+
+- **Dream two-stage memory** — conversation history is consolidated into long-term memory via Dream, with Git-backed version control
+- **Jinja2 response templates** — agent responses and memory consolidation now use Jinja2 templating
+- **Built-in grep/glob search tools** — agents can search codebases natively
+- **bwrap sandbox** — exec tool calls can be sandboxed with bubblewrap (Linux)
+- **Runtime hardening** — more reliable long-running tasks with retry and cleanup guards
+- **Unified voice transcription** — OpenAI/Groq Whisper across all channels
+- **Langfuse observability** — optional integration for monitoring agent behavior
+- **Environment variable interpolation** — use `${VAR}` in config.json for secrets
+- **New providers** — GPT-5, Xiaomi MiMo, Qianfan, GitHub Copilot OAuth
+- **OpenAI Responses API** — native support for OpenAI's responses endpoint
+- **Matrix streaming + password login** — streaming support and simplified e2ee setup
+- **Discord.py migration** — stable Discord channel via discord.py
+- **WeChat multimodal** — voice, typing indicator, QR resilience, media enhancements
+- **Email attachments** — configurable inbound attachment extraction
+- **nanobot-api** Docker service — isolated OpenAI-compatible API endpoint
+- **Security** — API bound to localhost, exec env leak prevention, SSRF whitelist config
+- **Smarter retries** — Retry-After header respected, structured error classification
 
 ---
 
@@ -348,9 +370,11 @@ The `docker-compose.yml` includes the WhatsApp bridge and proxy configuration.
 
 ```
 nanobot/
-  templates/skills/
-    living-together/     # Companion Mode: shared-moment image generation (customizable)
-    emotional-companion/ # Companion Mode: proactive care & mood tracking (customizable)
+  templates/
+    skills/
+      living-together/     # Companion Mode: shared-moment image generation (customizable)
+      emotional-companion/ # Companion Mode: proactive care & mood tracking (customizable)
+    memory/                # Jinja2 templates for Dream memory consolidation (upstream v0.1.5)
   skills/
     translate/           # Built-in: faithful full-document translation
     github/              # Built-in: GitHub CLI integration
@@ -362,10 +386,15 @@ nanobot/
     tts.py               # Edge TTS + GPT-SoVITS voice synthesis
     openai_compat_provider.py  # OpenAI-compatible endpoint support
     anthropic_provider.py      # Anthropic Claude provider
-    transcription.py           # Audio transcription
+    transcription.py           # Unified audio transcription (OpenAI/Groq Whisper)
   agent/tools/
     image_gen.py         # Multi-model image generation & composition
-    shell.py             # Exec tool with security controls
+    search.py            # Built-in grep/glob search tools (upstream v0.1.5)
+    shell.py             # Exec tool with bwrap sandbox support
+  utils/
+    gitstore.py          # Git-backed memory version control (upstream v0.1.5)
+    runtime.py           # Runtime response guards (upstream v0.1.5)
+    searchusage.py       # Web search provider usage tracking (upstream v0.1.5)
   api/
     server.py            # OpenAI-compatible API (/v1/chat/completions)
 bridge/                  # WhatsApp bridge (TypeScript/Node.js)
