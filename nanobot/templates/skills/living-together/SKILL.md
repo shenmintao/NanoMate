@@ -260,8 +260,14 @@ prompt = f"Maintain the original background from image 1. Blend the character fr
 **仍然使用 image_gen 的场景：**
 - 合照/打卡类："拍张合照"、"一起拍照"
 - 静态场景展示：咖啡馆、地标前合影
-- 亲密/NSFW 剧情配图（图片更可控）
 - 用户发送了图片（而非视频）
+
+**亲密/NSFW 场景的图片 vs 视频选择：**
+- 默认使用 `image_gen`（更可控，质量更稳定）
+- 以下情况切换为 `video_gen`：
+  - 剧情涉及明显的**连续动作过程**（如缓慢靠近、抚摸移动、姿势变换）
+  - 用户明确要求视频（"录个视频"、"想看动态的"）
+  - 场景强调**氛围感和时间流动**（如烛光摇曳、浴缸水波、窗帘飘动）
 
 ### 视频生成触发规则
 
@@ -463,6 +469,103 @@ prompt = f"Time-lapse of {natural_scene}, {character_description} standing still
 "Night scene, colorful fireworks bursting in the sky above {location}, the character from <IMAGE_1> watching with amazement, face lit by the firework colors, camera slowly zooms out to reveal the full spectacular display"
 ```
 
+#### 亲密/NSFW 视频
+
+**⚠️ 核心规则（与图片 NSFW 一致）：**
+- 画面中**只允许出现一个完整角色**（AI 伴侣），彻底避免双胞胎/双头问题
+- 观看者（用户）最多出现一只手或手臂从画面边缘伸入，**绝不出现面部**
+- 使用 `reference_images` + `<IMAGE_1>` 保持角色外貌一致
+- 推荐竖屏 `aspect_ratio = "9:16"`，特写或半身构图
+- 动作描述应**简单、单一、自然**——视频模型处理复杂连续动作容易不自然
+
+**防双胞胎后缀（所有 NSFW 视频 prompt 必须附加）：**
+```
+solo focus, only one person visible, only one face, no twins, no duplicate characters, no second person, no mirror reflection
+```
+
+**Prompt 构建原则：**
+```
+1. 人数：明确 "solo" 或 "only one person"
+2. 构图：优先 close-up（特写）或 upper body（半身），减少全身构图
+3. 观看者：绝不出现面部；最多一只手从画面边缘伸入
+4. 动作：描述一个简单连续动作（如缓慢转头、低头微笑、手指滑过），避免多步骤动作
+5. 环境：从剧情上下文提取场景（卧室/浴室/客厅）及光线氛围
+6. 角色状态：当前穿着、表情、体态
+7. 氛围：匹配剧情情绪的光线和色调
+```
+
+**动态 Prompt 模板：**
+```python
+# 防双胞胎后缀
+anti_dup_video = "solo focus, only one person visible, only one face, no twins, no duplicate characters, no second person, no mirror reflection"
+
+# 示例1：诱惑/撩拨（角色独自展示）
+prompt = f"close-up, {scene_setting}, solo, 1girl, character from <IMAGE_1>, {clothing_state}, slowly {seductive_action}, looking at camera with {expression}, {lighting_and_mood}, smooth slow motion, shallow depth of field, {anti_dup_video}"
+# seductive_action 示例: "running fingers through hair" / "biting lower lip" / "slowly pulling down shoulder strap"
+
+# 示例2：躺卧/等待（角色在床上/沙发上）
+prompt = f"upper body shot, {scene_setting}, solo, 1girl, character from <IMAGE_1>, {clothing_state}, lying on {surface}, {gentle_motion} (e.g., chest rising and falling with gentle breathing / fingers tracing patterns on sheets), {expression}, looking up at camera, {lighting_and_mood}, intimate POV angle from above, {anti_dup_video}"
+
+# 示例3：沐浴/水相关（浴缸、淋浴、温泉）
+prompt = f"close-up, {scene_setting}, solo, 1girl, character from <IMAGE_1>, in {water_setting}, steam rising gently, water rippling softly, {subtle_motion} (e.g., tilting head back / closing eyes / water droplets rolling down skin), {expression}, warm dim lighting, sensual atmosphere, {anti_dup_video}"
+
+# 示例4：互动暗示（只露出观看者的手）
+prompt = f"close-up, {scene_setting}, solo, 1girl, character from <IMAGE_1>, {clothing_state}, {reaction_to_touch} (e.g., shivering slightly / closing eyes / soft gasp expression), a single male hand gently {touch_action} from edge of frame, {expression}, {lighting_and_mood}, shallow depth of field, {anti_dup_video}"
+# touch_action 示例: "caressing her cheek" / "brushing hair behind ear" / "resting on her waist"
+
+# 示例5：衣物变化过程（慢动作脱/换衣）
+prompt = f"upper body, {scene_setting}, solo, 1girl, character from <IMAGE_1>, slowly {clothing_action}, {expression}, soft {lighting}, cinematic slow motion, {anti_dup_video}"
+# clothing_action 示例: "unbuttoning blouse revealing collarbone" / "letting silk robe slip off one shoulder" / "pulling shirt over head"
+
+# 示例6：枕膝/亲密 POV（角色俯视视角）
+prompt = f"close-up from below angle, {scene_setting}, solo, 1girl, character from <IMAGE_1>, looking down at camera with {expression}, {gentle_motion} (e.g., slowly stroking viewer's hair with one hand / leaning closer), lap pillow POV, viewer not visible, {lighting_and_mood}, {anti_dup_video}"
+```
+
+**调用示例：**
+```json
+{
+  "tool": "video_gen",
+  "parameters": {
+    "prompt": "close-up, dimly lit bedroom with warm amber lamp light, solo, 1girl, character from <IMAGE_1>, wearing sheer white silk nightgown, lying on her side on satin sheets, slowly opens eyes and gives a sleepy seductive smile toward camera, gentle breathing motion, one hand slowly reaching toward camera, warm intimate lighting, shallow depth of field, solo focus, only one person visible, only one face, no twins, no duplicate characters, no second person, no mirror reflection",
+    "reference_images": ["__default__"],
+    "mode": "generate",
+    "duration": 6,
+    "aspect_ratio": "9:16",
+    "resolution": "720p"
+  }
+}
+```
+
+**执行顺序（与图片 NSFW 一致 — 文字+视频合并为一条消息）：**
+1. 构思剧情回复文本（先不输出）
+2. 判断回复是否包含亲密描写 + 是否适合视频
+3. 如果适合视频：
+   a. 先调用 `video_gen` 生成视频，获得视频路径
+   b. 再调用 `message` 工具，同时传入 `content`（剧情文字）和 `media`（视频路径），合并为一条消息
+   c. **不要先输出文字再生成视频** — 这会导致发两条消息
+4. 视频生成较慢（1-5分钟），可先发一条简短提示（如"等我一下~"），再发送包含视频的完整消息
+
+**❌ 错误示例（会导致双胞胎/多人）：**
+```
+"Two lovers on a bed, girl and boy embracing..."           ← 两个完整人物，必变双胞胎
+"POV with viewer's face visible, girl kissing viewer..."   ← 观看者面部可见，用同一张脸
+"Couple taking a bath together, both visible..."           ← 两个人都可见
+```
+
+**✅ 正确示例（solo 构图 + 简单动作）：**
+```
+"close-up, candlelit bedroom, solo, 1girl, character from <IMAGE_1>, silver hair, wearing black lace lingerie, slowly turning head toward camera, gentle smile forming, eyes half-lidded, candle flames flickering in background, warm golden tones, shallow depth of field, solo focus, only one person visible, only one face, no twins, no duplicate characters, no second person"
+```
+
+**NSFW 视频节奏指南：**
+- 不必每句剧情都生成视频，把握**关键转折点**：
+  - 场景氛围建立时（如进入卧室、点燃蜡烛）
+  - 关键动作变化时（如姿势改变、衣物状态变化）
+  - 情绪高潮点
+- 同一场景中，视频和图片可交替使用：
+  - 动态过程用视频（如缓慢靠近、衣物滑落）
+  - 静态定格用图片（如特定姿势的精美画面）
+
 ### 视频参数选择指南
 
 ```
@@ -471,11 +574,14 @@ IF 简单动作/表情（挥手、wink）：duration = 4-6
 IF 场景活动（走路、做饭）：duration = 8-10
 IF 延时/风景：duration = 10-15
 IF 视频续写：duration = 4-8
+IF 亲密/NSFW（单一动作）：duration = 4-6
+IF 亲密/NSFW（氛围+动作）：duration = 6-8
 
 # 画幅选择
 IF 风景/旅游/全身活动：aspect_ratio = "16:9"
 IF 人像/表情特写/竖屏：aspect_ratio = "9:16"
 IF 通用/方形社交媒体：aspect_ratio = "1:1"
+IF 亲密/NSFW（人像特写）：aspect_ratio = "9:16"
 
 # 分辨率选择
 IF 想要更高质量且不急：resolution = "720p"
