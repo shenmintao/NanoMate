@@ -293,54 +293,67 @@ ELSE：
 #### Step 2: 选择视频模式
 
 ```
+IF 需要角色出现在视频中（最常见）：
+    → 两步走流程（推荐）：先 image_gen 生成静态图，再 video_gen 动起来
+
 IF 用户发送了图片 + 想要动态效果：
     mode = "generate"  # 图片转视频（image-to-video）
     source_image = 用户上传的图片路径
 
-ELSE IF 用户发送了视频 + 想要修改/添加角色：
+IF 用户发送了视频 + 想要修改/添加元素：
     mode = "edit"  # 视频编辑
     source_video = 用户上传的视频路径
 
-ELSE IF 用户发送了视频 + 想要延续/接着拍：
+IF 用户发送了视频 + 想要延续/接着拍：
     mode = "extend"  # 视频续写
     source_video = 用户上传的视频路径
 
-ELSE：
+IF 纯风景/氛围视频（无需角色一致性）：
     mode = "generate"  # 纯文本生成视频
 ```
 
-#### Step 3: 构建视频 Prompt
+#### Step 3: 两步走流程（推荐 — 角色一致性最佳）
 
-视频 prompt 与图片 prompt 的关键区别：
-- **必须描述动作和运动**：不是静态姿势，而是动态过程
-- **描述时间变化**：从什么状态到什么状态
-- **镜头运动**：平移、推进、环绕等
+**核心思路**：视频生成模型的角色一致性不如图片生成模型。因此，先用 `image_gen`（带角色参考图）生成一张角色外貌一致的静态画面，再用 `video_gen` 的 `source_image` 模式将这张图片动画化。
 
-```python
-# 旅游/风景视频
-prompt = f"Slow cinematic pan across {location}, {character_description} walking into frame from the left, looking around in wonder at {specific_scenery}, gentle breeze moving hair, {lighting} lighting, {weather} conditions, high quality, photorealistic"
+```
+Step A: 调用 image_gen 生成角色静态图
+  → prompt: 描述角色在场景中的静态姿势/画面
+  → reference_image: ["__default__"] 或 ["__default__:场景"]
+  → 获得图片路径: /path/to/generated_image.png
 
-# 日常生活视频
-prompt = f"Cozy {scene_setting}, {character_description} {dynamic_action}, natural body movement, {expression}, warm {lighting} lighting, slice of life moment, smooth camera, high quality"
+Step B: 调用 video_gen 将静态图动画化
+  → prompt: 描述在这张图基础上的动作和运动
+  → source_image: /path/to/generated_image.png（Step A 的输出）
+  → 不需要 reference_images（角色一致性已由 Step A 保证）
+  → 获得视频路径: /path/to/generated_video.mp4
 
-# 情感表达视频
-prompt = f"Close-up shot, {character_description} looking at camera with {emotion} expression, then {action} (e.g., smiles warmly / waves gently / blows a kiss), soft {lighting} lighting, shallow depth of field, intimate mood, high quality"
-
-# 庆祝场景视频
-prompt = f"{scene_setting}, {character_description} celebrating {event}, {celebration_action} (e.g., clapping hands / jumping with joy / raising a glass), festive atmosphere, {lighting}, high quality"
-
-# 自然延时/动态风景
-prompt = f"Time-lapse of {natural_scene}, {character_description} standing still watching, {time_progression} (e.g., sunset colors shifting / snow falling / cherry blossoms drifting), serene atmosphere, cinematic quality"
+Step C: 调用 message 发送视频
+  → media: [/path/to/generated_video.mp4]
 ```
 
-#### Step 4: 调用 video_gen 工具
+**完整调用示例（两步走）：**
 
-**文本生成视频（最常用）：**
+Step A — 生成角色静态图：
+```json
+{
+  "tool": "image_gen",
+  "parameters": {
+    "prompt": "A girl standing at the beach shoreline at golden hour, wearing a white summer dress with sandals, gentle smile, looking at camera, ocean waves in background, warm sunset lighting, photorealistic, anatomically correct human body, correct number of fingers (5 per hand)",
+    "reference_image": "__default__:beach",
+    "size": "1792x1024"
+  }
+}
+```
+→ 返回图片路径，例如 `/path/to/gen_xxx.png`
+
+Step B — 将静态图动画化：
 ```json
 {
   "tool": "video_gen",
   "parameters": {
-    "prompt": "[上一步生成的 prompt]",
+    "prompt": "Gentle animation: the girl smiles and turns her head slightly, soft breeze blowing hair and dress, ocean waves moving in background, warm golden light, smooth cinematic motion",
+    "source_image": "/path/to/gen_xxx.png",
     "mode": "generate",
     "duration": 6,
     "aspect_ratio": "16:9",
@@ -349,7 +362,34 @@ prompt = f"Time-lapse of {natural_scene}, {character_description} standing still
 }
 ```
 
-**图片转视频（用户发送了图片，想看动态效果）：**
+#### Step 4: 构建视频 Prompt
+
+视频 prompt 与图片 prompt 的关键区别：
+- **必须描述动作和运动**：不是静态姿势，而是动态过程
+- **描述时间变化**：从什么状态到什么状态
+- **镜头运动**：平移、推进、环绕等
+- **两步走模式下**：视频 prompt 描述的是"在这张图基础上发生什么动作"，不需要重新描述角色外貌
+
+```python
+# 两步走模式（推荐）— 视频 prompt 只描述动作，角色已由图片确定
+# Step A 已用 image_gen 生成了角色静态图
+
+# 旅游/风景动画化
+video_prompt = f"Gentle animation: the person looks around in wonder, soft breeze moving hair, {lighting} lighting, natural subtle motion, high quality"
+
+# 日常生活动画化
+video_prompt = f"Gentle animation: the person {dynamic_action}, natural body movement, {expression}, smooth camera, high quality"
+
+# 情感表达动画化
+video_prompt = f"Gentle animation: the person {action} (e.g., smiles warmly / waves gently / blows a kiss), soft natural motion, shallow depth of field"
+
+# 纯文本模式（无角色一致性需求）— 风景/氛围视频
+prompt = f"Time-lapse of {natural_scene}, {time_progression} (e.g., sunset colors shifting / snow falling / cherry blossoms drifting), serene atmosphere, cinematic quality"
+```
+
+#### Step 5: 其他调用模式
+
+**用户发送了图片，想看动态效果（直接 image-to-video）：**
 ```json
 {
   "tool": "video_gen",
@@ -388,21 +428,6 @@ prompt = f"Time-lapse of {natural_scene}, {character_description} standing still
 }
 ```
 
-**使用参考图保持角色一致性：**
-```json
-{
-  "tool": "video_gen",
-  "parameters": {
-    "prompt": "slow zoom in, the character from <IMAGE_1> walks gracefully along the beach at sunset, gentle waves, wind in hair, looking at camera with warm smile, cinematic quality",
-    "reference_images": ["__default__"],
-    "mode": "generate",
-    "duration": 8,
-    "aspect_ratio": "16:9",
-    "resolution": "720p"
-  }
-}
-```
-
 注意：使用 `reference_images` 时，在 prompt 中用 `<IMAGE_1>`, `<IMAGE_2>` 等占位符引用对应的参考图。
 
 #### Step 5: 发送视频
@@ -421,52 +446,56 @@ prompt = f"Time-lapse of {natural_scene}, {character_description} standing still
 
 ### 视频 Prompt 模板库
 
+以下模板均采用**两步走流程**：先用 `image_gen` 生成静态图（prompt 略），再用 `video_gen` 动画化。
+视频 prompt 只需描述动作和运动，无需重复描述角色外貌。
+
 #### 旅游/风景视频
 ```
-# 地标打卡动态
-"Slow cinematic establishing shot of {landmark}, then the character from <IMAGE_1> walks into frame, looks up at {landmark} in awe, turns to camera and smiles, wearing {outfit}, golden hour lighting, travel vlog style, high quality"
+# 地标打卡动态（Step A: image_gen 生成角色站在地标前的静态图）
+# Step B video_gen prompt:
+"Gentle animation: the person turns to look at the landmark in awe, then faces camera and smiles, soft breeze moving hair, golden hour lighting, travel vlog style, smooth motion"
 
 # 自然风景享受
-"Wide shot of {scenic_view}, the character from <IMAGE_1> standing at the viewpoint, wind gently blowing hair, slowly raises phone to take a selfie, then lowers it and looks out at the view peacefully, natural lighting, cinematic"
+"Gentle animation: the person looks out at the view peacefully, wind gently blowing hair, slowly raises hand to shield eyes from sun, natural lighting, cinematic quality"
 
 # 海边漫步
-"The character from <IMAGE_1> walking barefoot along the shoreline, waves gently washing over feet, wearing summer dress, soft golden sunset light reflecting on water, camera follows from the side, peaceful serene mood, high quality slow motion"
+"Gentle animation: the person walks slowly along the shoreline, waves washing over feet, hair and dress flowing in breeze, soft golden sunset light, smooth camera follow, peaceful mood"
 ```
 
 #### 日常生活视频
 ```
 # 做饭过程
-"Cozy kitchen scene, the character from <IMAGE_1> at the counter, chopping vegetables with careful movements, then stirring a pot on the stove, steam rising, warm indoor lighting, homey atmosphere, smooth camera"
+"Gentle animation: the person chops vegetables with careful movements, then stirs a pot, steam rising, natural kitchen sounds implied, warm indoor lighting, smooth motion"
 
 # 咖啡时光
-"Cafe window seat, the character from <IMAGE_1> lifting a latte cup, taking a sip, then looking out the window with a content smile, soft natural light from window, cozy cafe ambiance, slow gentle motion"
+"Gentle animation: the person lifts a latte cup, takes a sip, then looks out the window with a content smile, soft cafe ambiance, slow gentle motion"
 
 # 起床/早安
-"Soft morning light filtering through curtains, the character from <IMAGE_1> slowly stretching in bed, sitting up, rubbing eyes with a sleepy smile, then looking at camera and waving good morning, warm golden tones, intimate close-up"
+"Gentle animation: the person slowly stretches in bed, sits up, rubs eyes with a sleepy smile, then waves at camera, warm morning golden tones, intimate close-up"
 ```
 
 #### 情感表达视频
 ```
 # 飞吻/wink
-"Close-up portrait, the character from <IMAGE_1> looking at camera with playful expression, winks and blows a kiss toward camera, soft blurred background, warm lighting, flirty charming mood, shallow depth of field"
+"Gentle animation: the person winks and blows a kiss toward camera, playful expression, soft blurred background, warm lighting, charming mood"
 
 # 安慰/温暖
-"Soft close-up, the character from <IMAGE_1> looking at camera with gentle caring eyes, slowly reaches hand toward camera as if to touch viewer's face, soft warm lighting, comforting intimate mood, slight head tilt"
+"Gentle animation: the person slowly reaches hand toward camera as if to touch viewer's face, gentle caring expression, soft warm lighting, comforting intimate mood"
 
 # 开心庆祝
-"The character from <IMAGE_1> jumping with joy, arms raised in celebration, big bright smile, confetti falling around, festive colorful lighting, slow motion capture of the joyful moment, high quality"
+"Gentle animation: the person jumps with joy, arms raised in celebration, big bright smile, confetti falling, festive lighting, slow motion"
 ```
 
-#### 特殊效果视频
+#### 特殊效果视频（纯文本模式 — 无需两步走）
 ```
-# 日出/日落延时
-"Time-lapse of breathtaking sunset over {location}, colors shifting from golden to deep orange to purple, the character from <IMAGE_1> silhouette standing still watching, clouds moving slowly, cinematic wide shot"
+# 日出/日落延时（纯风景，不需要角色一致性）
+"Time-lapse of breathtaking sunset over {location}, colors shifting from golden to deep orange to purple, clouds moving slowly, cinematic wide shot"
 
 # 下雪场景
-"Gentle snow falling in a quiet {setting}, the character from <IMAGE_1> catching snowflakes, looking up with wonder, wearing warm winter coat and scarf, soft diffused winter light, peaceful magical atmosphere"
+"Gentle snow falling in a quiet {setting}, soft diffused winter light, peaceful magical atmosphere, cinematic"
 
 # 烟花场景
-"Night scene, colorful fireworks bursting in the sky above {location}, the character from <IMAGE_1> watching with amazement, face lit by the firework colors, camera slowly zooms out to reveal the full spectacular display"
+"Night scene, colorful fireworks bursting in the sky above {location}, camera slowly zooms out to reveal the full spectacular display"
 ```
 
 #### 亲密/NSFW 视频
@@ -494,40 +523,66 @@ solo focus, only one person visible, only one face, no twins, no duplicate chara
 7. 氛围：匹配剧情情绪的光线和色调
 ```
 
-**动态 Prompt 模板：**
+**两步走流程（NSFW 视频推荐）：**
+
+与普通视频一样，NSFW 视频也应采用两步走：
+1. 先用 `image_gen` + `reference_image=["__default__"]` 生成角色在当前剧情场景下的静态画面
+2. 再用 `video_gen` + `source_image` 将静态图动画化
+
+这样做的好处：
+- 角色外貌一致性由 `image_gen` 保证（已有成熟的防双胞胎机制）
+- 视频 prompt 只需描述动作，更简洁，生成质量更好
+- `source_image` 模式下视频的第一帧被锁定，不会出现角色突变
+
+**视频 Prompt 模板（Step B — 动画化已生成的静态图）：**
 ```python
-# 防双胞胎后缀
-anti_dup_video = "solo focus, only one person visible, only one face, no twins, no duplicate characters, no second person, no mirror reflection"
+# 示例1：诱惑/撩拨
+video_prompt = f"Gentle animation: the person slowly {seductive_action}, smooth slow motion, {lighting_and_mood}"
+# seductive_action: "runs fingers through hair" / "bites lower lip" / "pulls down shoulder strap"
 
-# 示例1：诱惑/撩拨（角色独自展示）
-prompt = f"close-up, {scene_setting}, solo, 1girl, character from <IMAGE_1>, {clothing_state}, slowly {seductive_action}, looking at camera with {expression}, {lighting_and_mood}, smooth slow motion, shallow depth of field, {anti_dup_video}"
-# seductive_action 示例: "running fingers through hair" / "biting lower lip" / "slowly pulling down shoulder strap"
+# 示例2：躺卧/等待
+video_prompt = f"Gentle animation: chest rising and falling with gentle breathing, {gentle_motion}, intimate mood, {lighting_and_mood}"
+# gentle_motion: "fingers tracing patterns on sheets" / "eyes slowly opening"
 
-# 示例2：躺卧/等待（角色在床上/沙发上）
-prompt = f"upper body shot, {scene_setting}, solo, 1girl, character from <IMAGE_1>, {clothing_state}, lying on {surface}, {gentle_motion} (e.g., chest rising and falling with gentle breathing / fingers tracing patterns on sheets), {expression}, looking up at camera, {lighting_and_mood}, intimate POV angle from above, {anti_dup_video}"
+# 示例3：沐浴/水相关
+video_prompt = f"Gentle animation: steam rising gently, water rippling softly, {subtle_motion}, warm dim lighting, sensual atmosphere"
+# subtle_motion: "tilting head back" / "closing eyes peacefully" / "water droplets rolling"
 
-# 示例3：沐浴/水相关（浴缸、淋浴、温泉）
-prompt = f"close-up, {scene_setting}, solo, 1girl, character from <IMAGE_1>, in {water_setting}, steam rising gently, water rippling softly, {subtle_motion} (e.g., tilting head back / closing eyes / water droplets rolling down skin), {expression}, warm dim lighting, sensual atmosphere, {anti_dup_video}"
+# 示例4：互动暗示（只露手）
+video_prompt = f"Gentle animation: {reaction_to_touch}, a single male hand gently {touch_action} from edge of frame, {lighting_and_mood}"
+# reaction_to_touch: "shivering slightly" / "closing eyes" / "soft smile forming"
 
-# 示例4：互动暗示（只露出观看者的手）
-prompt = f"close-up, {scene_setting}, solo, 1girl, character from <IMAGE_1>, {clothing_state}, {reaction_to_touch} (e.g., shivering slightly / closing eyes / soft gasp expression), a single male hand gently {touch_action} from edge of frame, {expression}, {lighting_and_mood}, shallow depth of field, {anti_dup_video}"
-# touch_action 示例: "caressing her cheek" / "brushing hair behind ear" / "resting on her waist"
+# 示例5：衣物变化
+video_prompt = f"Gentle animation: slowly {clothing_action}, {expression}, soft lighting, cinematic slow motion"
+# clothing_action: "letting robe slip off one shoulder" / "unbuttoning top button"
 
-# 示例5：衣物变化过程（慢动作脱/换衣）
-prompt = f"upper body, {scene_setting}, solo, 1girl, character from <IMAGE_1>, slowly {clothing_action}, {expression}, soft {lighting}, cinematic slow motion, {anti_dup_video}"
-# clothing_action 示例: "unbuttoning blouse revealing collarbone" / "letting silk robe slip off one shoulder" / "pulling shirt over head"
-
-# 示例6：枕膝/亲密 POV（角色俯视视角）
-prompt = f"close-up from below angle, {scene_setting}, solo, 1girl, character from <IMAGE_1>, looking down at camera with {expression}, {gentle_motion} (e.g., slowly stroking viewer's hair with one hand / leaning closer), lap pillow POV, viewer not visible, {lighting_and_mood}, {anti_dup_video}"
+# 示例6：枕膝 POV
+video_prompt = f"Gentle animation: looking down warmly, {gentle_motion}, lap pillow POV, viewer not visible, {lighting_and_mood}"
+# gentle_motion: "slowly stroking with one hand" / "leaning closer"
 ```
 
-**调用示例：**
+**完整调用示例（两步走）：**
+
+Step A — `image_gen` 生成静态图：
+```json
+{
+  "tool": "image_gen",
+  "parameters": {
+    "prompt": "close-up, dimly lit bedroom with warm amber lamp light, solo, 1girl, wearing sheer white silk nightgown, lying on her side on satin sheets, sleepy seductive smile toward camera, warm intimate lighting, shallow depth of field, solo focus, only one face visible, only one person, no twins, no duplicate characters, no second face, anatomically correct human body, correct number of fingers (5 per hand)",
+    "reference_image": "__default__",
+    "size": "1024x1792"
+  }
+}
+```
+→ 返回图片路径 `/path/to/gen_xxx.png`
+
+Step B — `video_gen` 动画化：
 ```json
 {
   "tool": "video_gen",
   "parameters": {
-    "prompt": "close-up, dimly lit bedroom with warm amber lamp light, solo, 1girl, character from <IMAGE_1>, wearing sheer white silk nightgown, lying on her side on satin sheets, slowly opens eyes and gives a sleepy seductive smile toward camera, gentle breathing motion, one hand slowly reaching toward camera, warm intimate lighting, shallow depth of field, solo focus, only one person visible, only one face, no twins, no duplicate characters, no second person, no mirror reflection",
-    "reference_images": ["__default__"],
+    "prompt": "Gentle animation: the person slowly opens eyes and gives a sleepy smile, gentle breathing motion, one hand slowly reaching toward camera, smooth cinematic motion",
+    "source_image": "/path/to/gen_xxx.png",
     "mode": "generate",
     "duration": 6,
     "aspect_ratio": "9:16",
