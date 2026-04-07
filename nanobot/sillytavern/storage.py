@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -17,10 +16,7 @@ from nanobot.sillytavern.types import (
     StoredPreset,
     CharacterCardData,
     WorldInfoEntry,
-    WorldInfoBook,
     SillyTavernPreset,
-    MemoryBook,
-    MemoryBookSettings,
 )
 
 

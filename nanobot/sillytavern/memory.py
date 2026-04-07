@@ -6,8 +6,6 @@ import json
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any
-
 from nanobot.sillytavern.types import MemoryBook, MemoryBookSettings, MemoryEntry
 
 

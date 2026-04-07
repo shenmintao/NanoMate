@@ -1,7 +1,5 @@
 """Text-to-Speech providers for voice synthesis."""
 
-import asyncio
-import os
 from pathlib import Path
 from typing import Protocol
 
