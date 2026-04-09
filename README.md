@@ -46,6 +46,14 @@
 - **nanobot-api** Docker service — isolated OpenAI-compatible API endpoint
 - **Security** — API bound to localhost, exec env leak prevention, SSRF whitelist config
 - **Smarter retries** — Retry-After header respected, structured error classification
+- **Unified session** — `unified_session` config to share one session across all channels (single-user multi-device)
+- **Discord streaming** — progressive message editing as tokens arrive
+- **Adaptive thinking** — Anthropic provider supports `reasoning_effort: "adaptive"` mode
+- **MCP resources & prompts** — MCP resources and prompts are now exposed as read-only tools
+- **OpenAI auto-routing** — direct reasoning requests automatically route to Responses API with fallback
+- **Telegram enhancements** — location/geo message support, configurable `stream_edit_interval`
+- **Windows exec support** — shell command execution via `cmd.exe /c` on Windows
+- **Role alternation** — enforced message role alternation for non-Claude providers
 
 ---
 
