@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import json
 import os
 import time
@@ -42,6 +43,8 @@ if TYPE_CHECKING:
     from nanobot.cron.service import CronService
 
 
+UNIFIED_SESSION_KEY = "unified:default"
+
 class _LoopHook(AgentHook):
     """Core hook for the main loop."""
 
@@ -56,6 +59,7 @@ class _LoopHook(AgentHook):
         chat_id: str = "direct",
         message_id: str | None = None,
     ) -> None:
+        super().__init__(reraise=True)
         self._loop = agent_loop
         self._on_progress = on_progress
         self._on_stream = on_stream
@@ -110,44 +114,6 @@ class _LoopHook(AgentHook):
     def finalize_content(self, context: AgentHookContext, content: str | None) -> str | None:
         return self._loop._strip_think(content)
 
-
-class _LoopHookChain(AgentHook):
-    """Run the core hook before extra hooks."""
-
-    __slots__ = ("_primary", "_extras")
-
-    def __init__(self, primary: AgentHook, extra_hooks: list[AgentHook]) -> None:
-        self._primary = primary
-        self._extras = CompositeHook(extra_hooks)
-
-    def wants_streaming(self) -> bool:
-        return self._primary.wants_streaming() or self._extras.wants_streaming()
-
-    async def before_iteration(self, context: AgentHookContext) -> None:
-        await self._primary.before_iteration(context)
-        await self._extras.before_iteration(context)
-
-    async def on_stream(self, context: AgentHookContext, delta: str) -> None:
-        await self._primary.on_stream(context, delta)
-        await self._extras.on_stream(context, delta)
-
-    async def on_stream_end(self, context: AgentHookContext, *, resuming: bool) -> None:
-        await self._primary.on_stream_end(context, resuming=resuming)
-        await self._extras.on_stream_end(context, resuming=resuming)
-
-    async def before_execute_tools(self, context: AgentHookContext) -> None:
-        await self._primary.before_execute_tools(context)
-        await self._extras.before_execute_tools(context)
-
-    async def after_iteration(self, context: AgentHookContext) -> None:
-        await self._primary.after_iteration(context)
-        await self._extras.after_iteration(context)
-
-    def finalize_content(self, context: AgentHookContext, content: str | None) -> str | None:
-        content = self._primary.finalize_content(context, content)
-        return self._extras.finalize_content(context, content)
-
-
 class AgentLoop:
     """
     The agent loop is the core processing engine.
@@ -184,6 +150,7 @@ class AgentLoop:
         image_gen_config: ImageGenConfig | None = None,
         video_gen_config: VideoGenConfig | None = None,
         hooks: list[AgentHook] | None = None,
+        unified_session: bool = False,
     ):
         from nanobot.config.schema import ExecToolConfig, WebToolsConfig
 
@@ -232,7 +199,7 @@ class AgentLoop:
             exec_config=self.exec_config,
             restrict_to_workspace=restrict_to_workspace,
         )
-
+        self._unified_session = unified_session
         self._running = False
         self._mcp_servers = mcp_servers or {}
         self._mcp_stack: AsyncExitStack | None = None
@@ -384,7 +351,7 @@ class AgentLoop:
             message_id=message_id,
         )
         hook: AgentHook = (
-            _LoopHookChain(loop_hook, self._extra_hooks)
+            CompositeHook([loop_hook] + self._extra_hooks)
             if self._extra_hooks
             else loop_hook
         )
@@ -448,12 +415,17 @@ class AgentLoop:
                 if result:
                     await self.bus.publish_outbound(result)
                 continue
+            # Compute the effective session key before dispatching
+            # This ensures /stop command can find tasks correctly when unified session is enabled
+            effective_key = UNIFIED_SESSION_KEY if self._unified_session and not msg.session_key_override else msg.session_key
             task = asyncio.create_task(self._dispatch(msg))
-            self._active_tasks.setdefault(msg.session_key, []).append(task)
-            task.add_done_callback(lambda t, k=msg.session_key: self._active_tasks.get(k, []) and self._active_tasks[k].remove(t) if t in self._active_tasks.get(k, []) else None)
+            self._active_tasks.setdefault(effective_key, []).append(task)
+            task.add_done_callback(lambda t, k=effective_key: self._active_tasks.get(k, []) and self._active_tasks[k].remove(t) if t in self._active_tasks.get(k, []) else None)
 
     async def _dispatch(self, msg: InboundMessage) -> None:
         """Process a message: per-session serial, cross-session concurrent."""
+        if self._unified_session and not msg.session_key_override:
+            msg = dataclasses.replace(msg, session_key_override=UNIFIED_SESSION_KEY)
         lock = self._session_locks.setdefault(msg.session_key, asyncio.Lock())
         gate = self._concurrency_gate or nullcontext()
         async with lock, gate:

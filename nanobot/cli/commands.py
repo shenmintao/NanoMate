@@ -677,6 +677,7 @@ def serve(
         mcp_servers=runtime_config.tools.mcp_servers,
         channels_config=runtime_config.channels,
         timezone=runtime_config.agents.defaults.timezone,
+        unified_session=runtime_config.agents.defaults.unified_session,
     )
 
     model_name = runtime_config.agents.defaults.model
@@ -770,6 +771,7 @@ def gateway(
         timezone=config.agents.defaults.timezone,
         image_gen_config=config.tools.image_gen,
         video_gen_config=config.tools.video_gen,
+        unified_session=config.agents.defaults.unified_session,
     )
     _attach_sillytavern_hooks(agent, config)
 
@@ -1004,6 +1006,7 @@ def agent(
         timezone=config.agents.defaults.timezone,
         image_gen_config=config.tools.image_gen,
         video_gen_config=config.tools.video_gen,
+        unified_session=config.agents.defaults.unified_session,
     )
     _attach_sillytavern_hooks(agent_loop, config)
     restart_notice = consume_restart_notice_from_env()
@@ -1209,7 +1212,7 @@ def channels_status(
 
     table = Table(title="Channel Status")
     table.add_column("Channel", style="cyan")
-    table.add_column("Enabled", style="green")
+    table.add_column("Enabled")
 
     for name, cls in sorted(discover_all().items()):
         section = getattr(config.channels, name, None)
@@ -1344,7 +1347,7 @@ def plugins_list():
     table = Table(title="Channel Plugins")
     table.add_column("Name", style="cyan")
     table.add_column("Source", style="magenta")
-    table.add_column("Enabled", style="green")
+    table.add_column("Enabled")
 
     for name in sorted(all_channels):
         cls = all_channels[name]

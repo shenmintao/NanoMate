@@ -272,7 +272,7 @@ def build_assistant_message(
     thinking_blocks: list[dict] | None = None,
 ) -> dict[str, Any]:
     """Build a provider-safe assistant message with optional reasoning fields."""
-    msg: dict[str, Any] = {"role": "assistant", "content": content}
+    msg: dict[str, Any] = {"role": "assistant", "content": content or ""}
     if tool_calls:
         msg["tool_calls"] = tool_calls
     if reasoning_content is not None or thinking_blocks:
@@ -417,7 +417,7 @@ def build_status_content(
     ctx_total = max(context_window_tokens, 0)
     ctx_pct = int((context_tokens_estimate / ctx_total) * 100) if ctx_total > 0 else 0
     ctx_used_str = f"{context_tokens_estimate // 1000}k" if context_tokens_estimate >= 1000 else str(context_tokens_estimate)
-    ctx_total_str = f"{ctx_total // 1024}k" if ctx_total > 0 else "n/a"
+    ctx_total_str = f"{ctx_total // 1000}k" if ctx_total > 0 else "n/a"
     token_line = f"\U0001f4ca Tokens: {last_in} in / {last_out} out"
     if cached and last_in:
         token_line += f" ({cached * 100 // last_in}% cached)"

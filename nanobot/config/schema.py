@@ -75,8 +75,9 @@ class AgentDefaults(Base):
     max_tool_iterations: int = 200
     max_tool_result_chars: int = 16_000
     provider_retry_mode: Literal["standard", "persistent"] = "standard"
-    reasoning_effort: str | None = None  # low / medium / high - enables LLM thinking mode
+    reasoning_effort: str | None = None  # low / medium / high / adaptive - enables LLM thinking mode
     timezone: str = "UTC"  # IANA timezone, e.g. "Asia/Shanghai", "America/New_York"
+    unified_session: bool = False  # Share one session across all channels (single-user multi-device)
     dream: DreamConfig = Field(default_factory=DreamConfig)
 
 
