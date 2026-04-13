@@ -48,9 +48,10 @@ always: true
 
 ### 第一步：感知用户状态
 
-1. 用 `list_dir` 查看 `sessions/` 目录，找到渠道 session 文件（如 `whatsapp:*.jsonl`）
-2. 用 `read_file` 读取最近的 session 文件末尾（最后 20-30 条消息）
-3. 读取 `memory/MEMORY.md` 获取长期记忆
+当通过 heartbeat 触发时，最近的渠道对话历史会自动注入到任务消息中（[Channel Context] 部分）。
+你只需要：
+1. 阅读注入的对话历史，了解用户最近在聊什么
+2. 读取 `memory/MEMORY.md` 获取长期记忆
 
 从中提取：
 - **沉默时长**：用户最后一条消息距现在多久

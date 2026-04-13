@@ -861,11 +861,38 @@ def gateway(
         """Phase 2: execute heartbeat tasks through the full agent loop."""
         channel, chat_id = _pick_heartbeat_target()
 
+        # Inject recent channel conversation history so the agent has context
+        # about what the user has been talking about (emotional state, topics, etc.)
+        enriched_tasks = tasks
+        if channel != "cli":
+            session_key = f"{channel}:{chat_id}"
+            target_session = session_manager.get_or_create(session_key)
+            recent = target_session.get_history(max_messages=30)
+            if recent:
+                history_lines = []
+                for msg in recent:
+                    role = msg.get("role", "unknown")
+                    content = msg.get("content", "")
+                    if isinstance(content, list):
+                        content = " ".join(
+                            block.get("text", "") for block in content if isinstance(block, dict) and block.get("type") == "text"
+                        )
+                    if content:
+                        history_lines.append(f"[{role}] {content[:500]}")
+                if history_lines:
+                    history_text = "\n".join(history_lines[-20:])
+                    enriched_tasks = (
+                        f"{tasks}\n\n"
+                        f"---\n"
+                        f"[Channel Context] Target: {channel}:{chat_id}\n"
+                        f"Recent conversation history:\n{history_text}"
+                    )
+
         async def _silent(*_args, **_kwargs):
             pass
 
         resp = await agent.process_direct(
-            tasks,
+            enriched_tasks,
             session_key="heartbeat",
             channel=channel,
             chat_id=chat_id,
