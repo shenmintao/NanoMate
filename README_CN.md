@@ -46,6 +46,14 @@
 - **nanobot-api** Docker 服务 —— 隔离的 OpenAI 兼容 API 端点
 - **安全** —— API 绑定 localhost、exec 环境变量泄露防护、SSRF 白名单
 - **智能重试** —— 尊重 Retry-After 头部，结构化错误分类
+- **统一会话** —— `unified_session` 配置项，可在所有频道间共享同一会话（单用户多设备）
+- **Discord 流式输出** —— Token 到达时逐步编辑消息
+- **自适应思维模式** —— Anthropic 提供商支持 `reasoning_effort: "adaptive"` 模式
+- **MCP 资源与提示** —— MCP 资源和提示现在作为只读工具暴露
+- **OpenAI 自动路由** —— 直接推理请求自动路由到 Responses API，支持回退
+- **Telegram 增强** —— 位置/地理消息支持，可配置 `stream_edit_interval`
+- **Windows 执行支持** —— 通过 `cmd.exe /c` 在 Windows 上执行 shell 命令
+- **角色交替** —— 为非 Claude 提供商强制消息角色交替
 
 ---
 

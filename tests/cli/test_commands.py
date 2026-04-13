@@ -894,10 +894,18 @@ def test_gateway_cron_evaluator_receives_scheduled_reminder_context(
             self.on_job = None
             seen["cron"] = self
 
+    class _FakeSessionManager:
+        def get_or_create(self, _key):
+            return self
+
+        def get_history(self, max_messages=0):
+            return []
+
     class _FakeAgentLoop:
         def __init__(self, *args, **kwargs) -> None:
             self.model = "test-model"
             self.tools = {}
+            self.sessions = _FakeSessionManager()
 
         async def process_direct(self, *_args, **_kwargs):
             return OutboundMessage(

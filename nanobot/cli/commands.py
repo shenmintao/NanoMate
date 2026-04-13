@@ -795,10 +795,44 @@ def gateway(
         from nanobot.agent.tools.message import MessageTool
         from nanobot.utils.evaluator import evaluate_response
 
+        # Read recent channel conversation so the cron job is aware of user replies.
+        channel_context = ""
+        if job.payload.channel and job.payload.to:
+            channel_key = f"{job.payload.channel}:{job.payload.to}"
+            channel_session = agent.sessions.get_or_create(channel_key)
+            recent = channel_session.get_history(max_messages=0)
+            if recent:
+                lines: list[str] = []
+                for m in recent[-20:]:
+                    role = m.get("role", "unknown")
+                    if role == "tool" or m.get("tool_calls"):
+                        continue
+                    content = m.get("content", "")
+                    ts = m.get("timestamp", "")
+                    ts_prefix = f"[{ts}] " if ts else ""
+                    if isinstance(content, str) and content.strip():
+                        text = content[:300] + ("..." if len(content) > 300 else "")
+                        lines.append(f"{ts_prefix}{role}: {text}")
+                    elif isinstance(content, list):
+                        text_parts = [
+                            b.get("text", "") for b in content
+                            if isinstance(b, dict) and b.get("type") == "text"
+                        ]
+                        text = " ".join(text_parts)[:300]
+                        if text.strip():
+                            lines.append(f"{ts_prefix}{role}: {text}")
+                if lines:
+                    channel_context = (
+                        "\n\n--- Recent conversation with the user ---\n"
+                        + "\n".join(lines)
+                        + "\n--- End of recent conversation ---"
+                    )
+
         reminder_note = (
             "[Scheduled Task] Timer finished.\n\n"
             f"Task '{job.name}' has been triggered.\n"
             f"Scheduled instruction: {job.payload.message}"
+            + channel_context
         )
 
         cron_tool = agent.tools.get("cron")
