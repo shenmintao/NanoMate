@@ -27,6 +27,7 @@ class _SubagentHook(AgentHook):
     """Logging-only hook for subagent execution."""
 
     def __init__(self, task_id: str) -> None:
+        super().__init__()
         self._task_id = task_id
 
     async def before_execute_tools(self, context: AgentHookContext) -> None:
@@ -51,6 +52,7 @@ class SubagentManager:
         web_config: "WebToolsConfig | None" = None,
         exec_config: "ExecToolConfig | None" = None,
         restrict_to_workspace: bool = False,
+        disabled_skills: list[str] | None = None,
     ):
         from nanobot.config.schema import ExecToolConfig
 
@@ -62,6 +64,7 @@ class SubagentManager:
         self.max_tool_result_chars = max_tool_result_chars
         self.exec_config = exec_config or ExecToolConfig()
         self.restrict_to_workspace = restrict_to_workspace
+        self.disabled_skills = set(disabled_skills or [])
         self.runner = AgentRunner(provider)
         self._running_tasks: dict[str, asyncio.Task[None]] = {}
         self._session_tasks: dict[str, set[str]] = {}  # session_key -> {task_id, ...}
@@ -235,7 +238,10 @@ class SubagentManager:
         from nanobot.agent.skills import SkillsLoader
 
         time_ctx = ContextBuilder._build_runtime_context(None, None)
-        skills_summary = SkillsLoader(self.workspace).build_skills_summary()
+        skills_summary = SkillsLoader(
+            self.workspace,
+            disabled_skills=self.disabled_skills,
+        ).build_skills_summary()
         return render_template(
             "agent/subagent_system.md",
             time_ctx=time_ctx,
