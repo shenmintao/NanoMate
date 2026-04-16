@@ -5,14 +5,14 @@
   <p>
     <img src="https://img.shields.io/badge/python-≥3.11-blue" alt="Python">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-    <img src="https://img.shields.io/badge/base-nanobot_v0.1.5-orange" alt="Based on nanobot">
+    <img src="https://img.shields.io/badge/base-nanobot_v0.1.5.post1-orange" alt="Based on nanobot">
   </p>
   <p>English | <a href="./README_CN.md">中文</a></p>
 </div>
 
 **NanoMate** is an enhanced fork of [nanobot](https://github.com/HKUDS/nanobot) that integrates [SillyTavern](https://github.com/SillyTavern/SillyTavern) character cards and adds a **Companion Mode** — turning a lightweight AI agent into an AI partner with character identity, visual imagination, emotional awareness, and voice.
 
-> Currently synced with upstream nanobot **v0.1.5** (2026-04-05).
+> Currently synced with upstream nanobot **v0.1.5.post1** (2026-04-16).
 
 ## What's Different from nanobot?
 
@@ -27,7 +27,26 @@
 | Translation | Built-in | Faithful full-document translation skill |
 | Deployment | Basic | Dockerized with Node.js bridge, proxy-ready |
 
-### Upstream v0.1.5 Highlights (included in NanoMate)
+### Upstream v0.1.5.post1 Highlights (included in NanoMate)
+
+**New in v0.1.5.post1:**
+
+- **MS Teams channel** — full Microsoft Teams integration
+- **WebSocket channel** — real-time bidirectional communication channel
+- **Context compact** — auto-shrink sessions on the fly to manage context limits
+- **Dream skill discovery** — Dream now learns and remembers discovered skills
+- **Mid-turn follow-up injection** — inject messages mid-turn for richer interactions
+- **Kagi web search** — Kagi as a web search provider option
+- **Notebook editing tool** — edit Jupyter notebooks programmatically
+- **Multiple MCP servers** — run multiple MCP servers simultaneously
+- **Lark global domain support** — Feishu/Lark channels support global domain
+- **API file uploads** — upload files via the OpenAI-compatible API
+- **`disabled_skills` config** — selectively disable skills in config
+- **QQ & WeCom full media** — complete media support for QQ and WeCom channels
+- **Agent turn hardening** — user messages persisted early, auto-compact skips active tasks
+- **Document parsing** — new document parsing utility for file attachments
+
+**From v0.1.5:**
 
 - **Dream two-stage memory** — conversation history is consolidated into long-term memory via Dream, with Git-backed version control
 - **Jinja2 response templates** — agent responses and memory consolidation now use Jinja2 templating
