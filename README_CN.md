@@ -5,14 +5,14 @@
   <p>
     <img src="https://img.shields.io/badge/python-≥3.11-blue" alt="Python">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-    <img src="https://img.shields.io/badge/base-nanobot_v0.1.5-orange" alt="Based on nanobot">
+    <img src="https://img.shields.io/badge/base-nanobot_v0.1.5.post1-orange" alt="Based on nanobot">
   </p>
   <p><a href="./README.md">English</a> | 中文</p>
 </div>
 
 **NanoMate** 是 [nanobot](https://github.com/HKUDS/nanobot) 的增强分支，集成了 [SillyTavern](https://github.com/SillyTavern/SillyTavern) 角色卡系统，并新增**伴侣模式** —— 将轻量级 AI Agent 变成拥有角色身份、视觉想象、情感感知和语音能力的 AI 伙伴。
 
-> 当前同步上游 nanobot **v0.1.5**（2026-04-05）。
+> 当前同步上游 nanobot **v0.1.5.post1**（2026-04-16）。
 
 ## 与 nanobot 有什么不同？
 
@@ -26,34 +26,6 @@
 | WhatsApp 代理 | 基础 | HTTP/HTTPS/SOCKS5 代理支持 |
 | 翻译 | 内置 | 忠实全文翻译技能 |
 | 部署 | 基础 | Docker 化，含 Node.js 桥接，代理就绪 |
-
-### 上游 v0.1.5 亮点（已包含在 NanoMate 中）
-
-- **Dream 两阶段记忆** —— 对话历史通过 Dream 整合为长期记忆，支持 Git 版本控制
-- **Jinja2 响应模板** —— Agent 响应和记忆整合使用 Jinja2 模板引擎
-- **内置 grep/glob 搜索工具** —— Agent 可原生搜索代码库
-- **bwrap 沙箱** —— exec 工具调用可通过 bubblewrap 沙箱隔离（Linux）
-- **运行时加固** —— 长时间运行任务更加可靠，增加重试和清理保护
-- **统一语音转写** —— 所有频道支持 OpenAI/Groq Whisper
-- **Langfuse 可观测性** —— 可选集成，监控 Agent 行为
-- **环境变量插值** —— 在 config.json 中使用 `${VAR}` 引用密钥
-- **新提供商** —— GPT-5、小米 MiMo、千帆、GitHub Copilot OAuth
-- **OpenAI Responses API** —— 原生支持 OpenAI 的 responses 端点
-- **Matrix 流式输出 + 密码登录** —— 流式支持和简化的端到端加密设置
-- **Discord.py 迁移** —— 通过 discord.py 实现稳定的 Discord 频道
-- **微信多模态** —— 语音、输入指示器、二维码恢复、媒体增强
-- **邮件附件** —— 可配置的入站附件提取
-- **nanobot-api** Docker 服务 —— 隔离的 OpenAI 兼容 API 端点
-- **安全** —— API 绑定 localhost、exec 环境变量泄露防护、SSRF 白名单
-- **智能重试** —— 尊重 Retry-After 头部，结构化错误分类
-- **统一会话** —— `unified_session` 配置项，可在所有频道间共享同一会话（单用户多设备）
-- **Discord 流式输出** —— Token 到达时逐步编辑消息
-- **自适应思维模式** —— Anthropic 提供商支持 `reasoning_effort: "adaptive"` 模式
-- **MCP 资源与提示** —— MCP 资源和提示现在作为只读工具暴露
-- **OpenAI 自动路由** —— 直接推理请求自动路由到 Responses API，支持回退
-- **Telegram 增强** —— 位置/地理消息支持，可配置 `stream_edit_interval`
-- **Windows 执行支持** —— 通过 `cmd.exe /c` 在 Windows 上执行 shell 命令
-- **角色交替** —— 为非 Claude 提供商强制消息角色交替
 
 ---
 
