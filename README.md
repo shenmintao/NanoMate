@@ -27,53 +27,6 @@
 | Translation | Built-in | Faithful full-document translation skill |
 | Deployment | Basic | Dockerized with Node.js bridge, proxy-ready |
 
-### Upstream v0.1.5.post1 Highlights (included in NanoMate)
-
-**New in v0.1.5.post1:**
-
-- **MS Teams channel** — full Microsoft Teams integration
-- **WebSocket channel** — real-time bidirectional communication channel
-- **Context compact** — auto-shrink sessions on the fly to manage context limits
-- **Dream skill discovery** — Dream now learns and remembers discovered skills
-- **Mid-turn follow-up injection** — inject messages mid-turn for richer interactions
-- **Kagi web search** — Kagi as a web search provider option
-- **Notebook editing tool** — edit Jupyter notebooks programmatically
-- **Multiple MCP servers** — run multiple MCP servers simultaneously
-- **Lark global domain support** — Feishu/Lark channels support global domain
-- **API file uploads** — upload files via the OpenAI-compatible API
-- **`disabled_skills` config** — selectively disable skills in config
-- **QQ & WeCom full media** — complete media support for QQ and WeCom channels
-- **Agent turn hardening** — user messages persisted early, auto-compact skips active tasks
-- **Document parsing** — new document parsing utility for file attachments
-
-**From v0.1.5:**
-
-- **Dream two-stage memory** — conversation history is consolidated into long-term memory via Dream, with Git-backed version control
-- **Jinja2 response templates** — agent responses and memory consolidation now use Jinja2 templating
-- **Built-in grep/glob search tools** — agents can search codebases natively
-- **bwrap sandbox** — exec tool calls can be sandboxed with bubblewrap (Linux)
-- **Runtime hardening** — more reliable long-running tasks with retry and cleanup guards
-- **Unified voice transcription** — OpenAI/Groq Whisper across all channels
-- **Langfuse observability** — optional integration for monitoring agent behavior
-- **Environment variable interpolation** — use `${VAR}` in config.json for secrets
-- **New providers** — GPT-5, Xiaomi MiMo, Qianfan, GitHub Copilot OAuth
-- **OpenAI Responses API** — native support for OpenAI's responses endpoint
-- **Matrix streaming + password login** — streaming support and simplified e2ee setup
-- **Discord.py migration** — stable Discord channel via discord.py
-- **WeChat multimodal** — voice, typing indicator, QR resilience, media enhancements
-- **Email attachments** — configurable inbound attachment extraction
-- **nanobot-api** Docker service — isolated OpenAI-compatible API endpoint
-- **Security** — API bound to localhost, exec env leak prevention, SSRF whitelist config
-- **Smarter retries** — Retry-After header respected, structured error classification
-- **Unified session** — `unified_session` config to share one session across all channels (single-user multi-device)
-- **Discord streaming** — progressive message editing as tokens arrive
-- **Adaptive thinking** — Anthropic provider supports `reasoning_effort: "adaptive"` mode
-- **MCP resources & prompts** — MCP resources and prompts are now exposed as read-only tools
-- **OpenAI auto-routing** — direct reasoning requests automatically route to Responses API with fallback
-- **Telegram enhancements** — location/geo message support, configurable `stream_edit_interval`
-- **Windows exec support** — shell command execution via `cmd.exe /c` on Windows
-- **Role alternation** — enforced message role alternation for non-Claude providers
-
 ---
 
 ## Setup Guide
