@@ -37,10 +37,10 @@ def parse_preset_object(obj: Any) -> tuple[SillyTavernPreset | None, str | None]
                 continue
             prompts.append(_parse_prompt_entry(entry))
 
-    # Apply prompt_order enabled overrides.
-    # SillyTavern stores per-entry enabled state in prompt_order separately
-    # from the prompts array. The prompt_order entries take precedence.
-    _apply_prompt_order_overrides(prompts, obj.get("prompt_order", []))
+    # Apply prompt_order overrides (enabled state and ordering).
+    # SillyTavern stores per-entry enabled state and ordering in prompt_order
+    # separately from the prompts array. The prompt_order takes precedence.
+    prompts = _apply_prompt_order_overrides(prompts, obj.get("prompt_order", []))
 
     preset = SillyTavernPreset(
         temperature=float(obj.get("temperature", 1.0)),
@@ -57,15 +57,15 @@ def parse_preset_object(obj: Any) -> tuple[SillyTavernPreset | None, str | None]
 def _apply_prompt_order_overrides(
     prompts: list[PresetPromptEntry],
     prompt_order_raw: list[Any],
-) -> None:
-    """Apply enabled overrides from prompt_order to parsed prompts.
+) -> list[PresetPromptEntry]:
+    """Apply enabled and ordering overrides from prompt_order to parsed prompts.
 
     SillyTavern presets have a prompt_order array where each entry contains
-    a character_id and an order list with per-identifier enabled states.
-    These override the enabled field in the prompts array.
+    a character_id and an order list with per-identifier enabled states and
+    ordering. These override the enabled field and order in the prompts array.
     """
     if not isinstance(prompt_order_raw, list):
-        return
+        return prompts
 
     # Build a lookup from identifier to prompt entry
     by_id: dict[str, PresetPromptEntry] = {}
@@ -73,19 +73,43 @@ def _apply_prompt_order_overrides(
         if p.identifier:
             by_id[p.identifier] = p
 
-    # Apply overrides from prompt_order entries (last one wins)
+    # Find the last prompt_order entry (last one wins)
+    last_order: list[dict] | None = None
     for po in prompt_order_raw:
         if not isinstance(po, dict):
             continue
         order = po.get("order")
-        if not isinstance(order, list):
+        if isinstance(order, list):
+            last_order = order
+
+    if last_order is None:
+        return prompts
+
+    # Apply enabled overrides and reorder
+    ordered: list[PresetPromptEntry] = []
+    seen: set[str] = set()
+    for item in last_order:
+        if not isinstance(item, dict):
             continue
-        for item in order:
-            if not isinstance(item, dict):
-                continue
-            ident = item.get("identifier", "")
-            if ident and ident in by_id and "enabled" in item:
-                by_id[ident].enabled = bool(item["enabled"])
+        ident = item.get("identifier", "")
+        if not ident or ident not in by_id:
+            continue
+        entry = by_id[ident]
+        if "enabled" in item:
+            entry.enabled = bool(item["enabled"])
+        if ident not in seen:
+            ordered.append(entry)
+            seen.add(ident)
+
+    # Append any prompts not referenced in prompt_order
+    for p in prompts:
+        if p.identifier and p.identifier not in seen:
+            ordered.append(p)
+            seen.add(p.identifier)
+        elif not p.identifier:
+            ordered.append(p)
+
+    return ordered
 
 
 def _parse_prompt_entry(d: dict) -> PresetPromptEntry:
