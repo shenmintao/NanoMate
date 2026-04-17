@@ -60,6 +60,7 @@ class HeartbeatService:
         interval_s: int = 30 * 60,
         enabled: bool = True,
         timezone: str | None = None,
+        get_context: Callable[[], str] | None = None,
     ):
         self.workspace = workspace
         self.provider = provider
@@ -69,6 +70,7 @@ class HeartbeatService:
         self.interval_s = interval_s
         self.enabled = enabled
         self.timezone = timezone
+        self.get_context = get_context
         self._running = False
         self._task: asyncio.Task | None = None
 
@@ -91,14 +93,19 @@ class HeartbeatService:
         """
         from nanobot.utils.helpers import current_time_str
 
+        extra_context = self.get_context() if self.get_context else ""
+        user_content = (
+            f"Current Time: {current_time_str(self.timezone)}\n\n"
+            "Review the following HEARTBEAT.md and decide whether there are active tasks.\n\n"
+            f"{content}"
+        )
+        if extra_context:
+            user_content += f"\n\n---\n{extra_context}"
+
         response = await self.provider.chat_with_retry(
             messages=[
                 {"role": "system", "content": "You are a heartbeat agent. Call the heartbeat tool to report your decision."},
-                {"role": "user", "content": (
-                    f"Current Time: {current_time_str(self.timezone)}\n\n"
-                    "Review the following HEARTBEAT.md and decide whether there are active tasks.\n\n"
-                    f"{content}"
-                )},
+                {"role": "user", "content": user_content},
             ],
             tools=_HEARTBEAT_TOOL,
             model=self.model,

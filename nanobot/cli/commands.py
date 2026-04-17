@@ -954,6 +954,23 @@ def gateway(
             return  # No external channel available to deliver to
         await bus.publish_outbound(OutboundMessage(channel=channel, chat_id=chat_id, content=response))
 
+    def _heartbeat_context() -> str:
+        """Provide recent conversation info so the decision LLM can judge
+        whether proactive care is appropriate."""
+        from datetime import datetime
+
+        channel, chat_id = _pick_heartbeat_target()
+        if channel == "cli":
+            return ""
+        session_key = f"{channel}:{chat_id}"
+        target_session = session_manager.get_or_create(session_key)
+        age = datetime.now() - target_session.updated_at
+        minutes = int(age.total_seconds() / 60)
+        return (
+            f"[Session Info] Last conversation with user on {channel}:{chat_id} "
+            f"was {minutes} minutes ago."
+        )
+
     hb_cfg = config.gateway.heartbeat
     heartbeat = HeartbeatService(
         workspace=config.workspace_path,
@@ -964,6 +981,7 @@ def gateway(
         interval_s=hb_cfg.interval_s,
         enabled=hb_cfg.enabled,
         timezone=config.agents.defaults.timezone,
+        get_context=_heartbeat_context,
     )
 
     if channels.enabled_channels:
