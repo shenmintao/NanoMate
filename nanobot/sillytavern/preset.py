@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from typing import Any
 
@@ -208,7 +209,41 @@ def apply_macros(
     for key, value in replacements.items():
         result = result.replace("{{" + key + "}}", value)
 
+    # Process SillyTavern variable macros (setvar/getvar)
+    result = _process_st_variables(result)
+
     return result
+
+
+def _process_st_variables(content: str) -> str:
+    """Process SillyTavern {{setvar}}, {{getvar}}, and {{//comment}} macros.
+
+    Processes left-to-right across the concatenated prompt content:
+    - {{setvar::name::value}} — stores value in variable, removed from output
+    - {{getvar::name}} — replaced with the variable's current value
+    - {{//...}} — comment, removed from output
+    """
+    # Remove comments: {{//...}}
+    content = re.sub(r"\{\{//.*?\}\}", "", content)
+
+    # Pass 1: extract setvar and remove from output (left-to-right order)
+    variables: dict[str, str] = {}
+
+    def _setvar_repl(m: re.Match) -> str:
+        variables[m.group(1)] = m.group(2)
+        return ""
+
+    content = re.sub(
+        r"\{\{setvar::([^:}]+)::(.*?)\}\}", _setvar_repl, content, flags=re.DOTALL
+    )
+
+    # Pass 2: replace getvar with stored values
+    def _getvar_repl(m: re.Match) -> str:
+        return variables.get(m.group(1), "")
+
+    content = re.sub(r"\{\{getvar::([^}]+)\}\}", _getvar_repl, content)
+
+    return content
 
 
 def _format_to_strftime(fmt: str) -> str:
