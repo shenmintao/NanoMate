@@ -80,9 +80,10 @@ class _LoopHook(AgentHook):
     async def on_stream(self, context: AgentHookContext, delta: str) -> None:
         from nanobot.utils.helpers import strip_think
 
-        prev_clean = strip_think(self._stream_buf)
+        extra = self._loop.response_filter_tags
+        prev_clean = strip_think(self._stream_buf, extra)
         self._stream_buf += delta
-        new_clean = strip_think(self._stream_buf)
+        new_clean = strip_think(self._stream_buf, extra)
         incremental = new_clean[len(prev_clean) :]
         if incremental and self._on_stream:
             await self._on_stream(incremental)
@@ -229,6 +230,8 @@ class AgentLoop:
         )
         # Optional hook for filtering response content (e.g. SillyTavern tag extraction).
         self.response_filter: Callable[[str], str] | None = None
+        # Extra tag names to strip (populated from responseFilterTag config).
+        self.response_filter_tags: list[str] = []
         self.consolidator = Consolidator(
             store=self.context.memory,
             provider=provider,

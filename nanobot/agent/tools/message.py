@@ -34,6 +34,7 @@ class MessageTool(Tool):
         self._default_chat_id = default_chat_id
         self._default_message_id = default_message_id
         self._sent_in_turn: bool = False
+        self.response_filter_tags: list[str] = []
 
     def set_context(self, channel: str, chat_id: str, message_id: str | None = None) -> None:
         """Set the current message context."""
@@ -72,7 +73,7 @@ class MessageTool(Tool):
         **kwargs: Any
     ) -> str:
         from nanobot.utils.helpers import strip_think
-        content = strip_think(content)
+        content = strip_think(content, self.response_filter_tags)
         
         channel = channel or self._default_channel
         chat_id = chat_id or self._default_chat_id

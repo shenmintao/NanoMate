@@ -14,13 +14,19 @@ import tiktoken
 from loguru import logger
 
 
-def strip_think(text: str) -> str:
-    """Remove thinking blocks and any unclosed trailing tag."""
-    text = re.sub(r"<think>[\s\S]*?</think>", "", text)
-    text = re.sub(r"^\s*<think>[\s\S]*$", "", text)
-    # Gemma 4 and similar models use <thought>...</thought> blocks
-    text = re.sub(r"<thought>[\s\S]*?</thought>", "", text)
-    text = re.sub(r"^\s*<thought>[\s\S]*$", "", text)
+def strip_think(text: str, extra_tags: list[str] | None = None) -> str:
+    """Remove thinking blocks and any unclosed trailing tag.
+
+    *extra_tags* allows callers to supply additional tag names (e.g. from
+    ``responseFilterTag``) so they are stripped with the same logic.
+    """
+    tags = ["think", "thought"]
+    for t in extra_tags or []:
+        if t not in tags:
+            tags.append(t)
+    for tag in tags:
+        text = re.sub(rf"<{tag}>[\s\S]*?</{tag}>", "", text)
+        text = re.sub(rf"^\s*<{tag}>[\s\S]*$", "", text)
     return text.strip()
 
 

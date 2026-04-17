@@ -485,6 +485,11 @@ def _attach_sillytavern_hooks(agent, config: Config) -> None:
                 return filtered.strip() or content  # Fallback if everything was filtered
 
             agent.response_filter = _response_filter
+            agent.response_filter_tags = tags
+            if (mt := agent.tools.get("message")):
+                from nanobot.agent.tools.message import MessageTool
+                if isinstance(mt, MessageTool):
+                    mt.response_filter_tags = tags
 
     except Exception:
         pass  # SillyTavern is optional — fail silently
