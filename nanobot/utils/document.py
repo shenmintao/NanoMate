@@ -7,26 +7,6 @@ from loguru import logger
 
 from nanobot.utils.helpers import detect_image_mime
 
-try:
-    from pypdf import PdfReader
-except ImportError:
-    PdfReader = None  # type: ignore
-
-try:
-    from docx import Document as DocxDocument
-except ImportError:
-    DocxDocument = None  # type: ignore
-
-try:
-    from openpyxl import load_workbook
-except ImportError:
-    load_workbook = None  # type: ignore
-
-try:
-    from pptx import Presentation as PptxPresentation
-except ImportError:
-    PptxPresentation = None  # type: ignore
-
 
 # Supported file extensions for text extraction
 SUPPORTED_EXTENSIONS: set[str] = {
@@ -78,22 +58,16 @@ def extract_text(path: Path) -> str | None:
 
     ext = path.suffix.lower()
 
-    # Document formats
+    # Document formats -- each branch lazily imports its parser so that
+    # startup does not pay the ~25 MB cost of loading openpyxl /
+    # python-docx / python-pptx / pypdf up front (see issue #3422).
     if ext == ".pdf":
-        if PdfReader is None:
-            return "[error: pypdf not installed]"
         return _extract_pdf(path)
     elif ext == ".docx":
-        if DocxDocument is None:
-            return "[error: python-docx not installed]"
         return _extract_docx(path)
     elif ext == ".xlsx":
-        if load_workbook is None:
-            return "[error: openpyxl not installed]"
         return _extract_xlsx(path)
     elif ext == ".pptx":
-        if PptxPresentation is None:
-            return "[error: python-pptx not installed]"
         return _extract_pptx(path)
     elif _is_text_extension(ext):
         return _extract_text_file(path)
@@ -107,6 +81,10 @@ def extract_text(path: Path) -> str | None:
 
 def _extract_pdf(path: Path) -> str:
     """Extract text from PDF using pypdf."""
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        return "[error: pypdf not installed]"
     try:
         reader = PdfReader(path)
         pages: list[str] = []
@@ -122,6 +100,10 @@ def _extract_pdf(path: Path) -> str:
 def _extract_docx(path: Path) -> str:
     """Extract text from DOCX using python-docx."""
     try:
+        from docx import Document as DocxDocument
+    except ImportError:
+        return "[error: python-docx not installed]"
+    try:
         doc = DocxDocument(path)
         paragraphs: list[str] = [p.text for p in doc.paragraphs if p.text.strip()]
         return _truncate("\n\n".join(paragraphs), _MAX_TEXT_LENGTH)
@@ -133,19 +115,25 @@ def _extract_docx(path: Path) -> str:
 def _extract_xlsx(path: Path) -> str:
     """Extract text from XLSX using openpyxl."""
     try:
+        from openpyxl import load_workbook
+    except ImportError:
+        return "[error: openpyxl not installed]"
+    try:
         wb = load_workbook(path, read_only=True, data_only=True)
-        sheets: list[str] = []
-        for sheet_name in wb.sheetnames:
-            ws = wb[sheet_name]
-            rows: list[str] = []
-            for row in ws.iter_rows(values_only=True):
-                row_text = "\t".join(str(cell) if cell is not None else "" for cell in row)
-                if row_text.strip():
-                    rows.append(row_text)
-            if rows:
-                sheets.append(f"--- Sheet: {sheet_name} ---\n" + "\n".join(rows))
-        wb.close()
-        return _truncate("\n\n".join(sheets), _MAX_TEXT_LENGTH)
+        try:
+            sheets: list[str] = []
+            for sheet_name in wb.sheetnames:
+                ws = wb[sheet_name]
+                rows: list[str] = []
+                for row in ws.iter_rows(values_only=True):
+                    row_text = "\t".join(str(cell) if cell is not None else "" for cell in row)
+                    if row_text.strip():
+                        rows.append(row_text)
+                if rows:
+                    sheets.append(f"--- Sheet: {sheet_name} ---\n" + "\n".join(rows))
+            return _truncate("\n\n".join(sheets), _MAX_TEXT_LENGTH)
+        finally:
+            wb.close()
     except Exception as e:
         logger.error("Failed to extract XLSX {}: {}", path, e)
         return f"[error: failed to extract XLSX: {e!s}]"
@@ -154,19 +142,47 @@ def _extract_xlsx(path: Path) -> str:
 def _extract_pptx(path: Path) -> str:
     """Extract text from PPTX using python-pptx."""
     try:
+        from pptx import Presentation as PptxPresentation
+    except ImportError:
+        return "[error: python-pptx not installed]"
+    try:
         prs = PptxPresentation(path)
         slides: list[str] = []
         for i, slide in enumerate(prs.slides, 1):
             slide_text: list[str] = []
             for shape in slide.shapes:
-                if hasattr(shape, "text") and shape.text:
-                    slide_text.append(shape.text)
+                _collect_pptx_shape_text(shape, slide_text)
             if slide_text:
                 slides.append(f"--- Slide {i} ---\n" + "\n".join(slide_text))
         return _truncate("\n\n".join(slides), _MAX_TEXT_LENGTH)
     except Exception as e:
         logger.error("Failed to extract PPTX {}: {}", path, e)
         return f"[error: failed to extract PPTX: {e!s}]"
+
+
+def _collect_pptx_shape_text(shape, out: list[str]) -> None:
+    """Collect text from a PPTX shape, recursing into groups and tables.
+
+    Groups have ``has_text_frame=False`` and must be walked via ``.shapes``;
+    tables are GraphicFrame objects whose cell text lives under ``.table``.
+    """
+    sub_shapes = getattr(shape, "shapes", None)
+    if sub_shapes is not None:
+        for sub in sub_shapes:
+            _collect_pptx_shape_text(sub, out)
+        return
+
+    if getattr(shape, "has_table", False):
+        for row in shape.table.rows:
+            cells = [cell.text.strip() for cell in row.cells]
+            line = "\t".join(cell for cell in cells if cell)
+            if line:
+                out.append(line)
+        return
+
+    text = getattr(shape, "text", "")
+    if text:
+        out.append(text)
 
 
 def _extract_text_file(path: Path) -> str:

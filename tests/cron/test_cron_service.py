@@ -8,6 +8,15 @@ from nanobot.cron.service import CronService
 from nanobot.cron.types import CronJob, CronPayload, CronSchedule
 
 
+async def _wait_until(predicate, *, timeout: float = 1.0, interval: float = 0.01) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return
+        await asyncio.sleep(interval)
+    assert predicate()
+
+
 def test_add_job_rejects_unknown_timezone(tmp_path) -> None:
     service = CronService(tmp_path / "cron" / "jobs.json")
 
@@ -32,6 +41,59 @@ def test_add_job_accepts_valid_timezone(tmp_path) -> None:
 
     assert job.schedule.tz == "America/Vancouver"
     assert job.state.next_run_at_ms is not None
+
+
+def test_add_job_preserves_channel_meta_and_session_key(tmp_path) -> None:
+    service = CronService(tmp_path / "cron" / "jobs.json")
+    meta = {"slack": {"thread_ts": "1234567890.123456", "channel_type": "channel"}}
+    job = service.add_job(
+        name="thread test",
+        schedule=CronSchedule(kind="every", every_ms=60_000),
+        message="hello",
+        deliver=True,
+        channel="slack",
+        to="C123",
+        channel_meta=meta,
+        session_key="slack:C123:1234567890.123456",
+    )
+    assert job.payload.channel_meta == meta
+    assert job.payload.session_key == "slack:C123:1234567890.123456"
+
+    reloaded = service.get_job(job.id)
+    assert reloaded is not None
+    assert reloaded.payload.channel_meta == meta
+    assert reloaded.payload.session_key == "slack:C123:1234567890.123456"
+
+
+@pytest.mark.asyncio
+async def test_channel_meta_and_session_key_survive_store_reload(tmp_path) -> None:
+    store_path = tmp_path / "cron" / "jobs.json"
+    service = CronService(store_path)
+    await service.start()
+    meta = {"slack": {"thread_ts": "1234567890.123456", "channel_type": "channel"}}
+    try:
+        job = service.add_job(
+            name="thread test",
+            schedule=CronSchedule(kind="every", every_ms=60_000),
+            message="hello",
+            deliver=True,
+            channel="slack",
+            to="C123",
+            channel_meta=meta,
+            session_key="slack:C123:1234567890.123456",
+        )
+    finally:
+        service.stop()
+
+    raw = json.loads(store_path.read_text(encoding="utf-8"))
+    payload = raw["jobs"][0]["payload"]
+    assert payload["channelMeta"] == meta
+    assert payload["sessionKey"] == "slack:C123:1234567890.123456"
+
+    reloaded = CronService(store_path).get_job(job.id)
+    assert reloaded is not None
+    assert reloaded.payload.channel_meta == meta
+    assert reloaded.payload.session_key == "slack:C123:1234567890.123456"
 
 
 @pytest.mark.asyncio
@@ -201,18 +263,18 @@ async def test_start_server_not_jobs(tmp_path):
     async def on_job(job):
         called.append(job.name)
 
-    service = CronService(store_path, on_job=on_job, max_sleep_ms=1000)
+    service = CronService(store_path, on_job=on_job, max_sleep_ms=100)
     await service.start()
     assert len(service.list_jobs()) == 0
 
     service2 = CronService(tmp_path / "cron" / "jobs.json")
     service2.add_job(
         name="hist",
-        schedule=CronSchedule(kind="every", every_ms=500),
+        schedule=CronSchedule(kind="every", every_ms=100),
         message="hello",
     )
     assert len(service.list_jobs()) == 1
-    await asyncio.sleep(2)
+    await _wait_until(lambda: bool(called), timeout=0.8)
     assert len(called) != 0
     service.stop()
 
@@ -248,10 +310,10 @@ async def test_running_service_picks_up_external_add(tmp_path):
     async def on_job(job):
         called.append(job.name)
 
-    service = CronService(store_path, on_job=on_job)
+    service = CronService(store_path, on_job=on_job, max_sleep_ms=100)
     service.add_job(
         name="heartbeat",
-        schedule=CronSchedule(kind="every", every_ms=150),
+        schedule=CronSchedule(kind="every", every_ms=100),
         message="tick",
     )
     await service.start()
@@ -261,11 +323,11 @@ async def test_running_service_picks_up_external_add(tmp_path):
         external = CronService(store_path)
         external.add_job(
             name="external",
-            schedule=CronSchedule(kind="every", every_ms=150),
+            schedule=CronSchedule(kind="every", every_ms=100),
             message="ping",
         )
 
-        await asyncio.sleep(2)
+        await _wait_until(lambda: "external" in called, timeout=0.8)
         assert "external" in called
     finally:
         service.stop()
@@ -287,16 +349,16 @@ async def test_add_job_during_jobs_exec(tmp_path):
             )
             run_once = False
 
-    service = CronService(store_path, on_job=on_job)
+    service = CronService(store_path, on_job=on_job, max_sleep_ms=100)
     service.add_job(
         name="heartbeat",
-        schedule=CronSchedule(kind="every", every_ms=150),
+        schedule=CronSchedule(kind="every", every_ms=100),
         message="tick",
     )
     assert len(service.list_jobs()) == 1
     await service.start()
     try:
-        await asyncio.sleep(3)
+        await _wait_until(lambda: len(service.list_jobs()) == 2, timeout=0.8)
         jobs = service.list_jobs()
         assert len(jobs) == 2
         assert "test" in [j.name for j in jobs]

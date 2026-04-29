@@ -116,6 +116,20 @@ def test_recent_history_capped_at_max(tmp_path) -> None:
     assert f"entry-{builder._MAX_RECENT_HISTORY + 19}" in prompt
 
 
+def test_recent_history_truncated_at_max_chars(tmp_path) -> None:
+    """Recent History section must be truncated at _MAX_HISTORY_CHARS."""
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    big_entry = "x" * (builder._MAX_HISTORY_CHARS + 5_000)
+    builder.memory.append_history(big_entry)
+
+    prompt = builder.build_system_prompt()
+    history_section = prompt.split("# Recent History\n\n", 1)
+    assert len(history_section) == 2
+    assert len(history_section[1]) < builder._MAX_HISTORY_CHARS + 200
+
+
 def test_no_recent_history_when_dream_has_processed_all(tmp_path) -> None:
     """If Dream has consumed everything, no Recent History section should appear."""
     workspace = _make_workspace(tmp_path)
@@ -149,14 +163,48 @@ def test_partial_dream_processing_shows_only_remainder(tmp_path) -> None:
 
 
 def test_execution_rules_in_system_prompt(tmp_path) -> None:
-    """New execution rules should appear in the system prompt."""
+    """Execution rules should appear in the system prompt via default SOUL.md."""
+    from nanobot.utils.helpers import sync_workspace_templates
+
+    workspace = _make_workspace(tmp_path)
+    sync_workspace_templates(workspace, silent=True)
+    builder = ContextBuilder(workspace)
+
+    prompt = builder.build_system_prompt()
+    assert "single-step tasks" in prompt
+    assert "multi-step tasks" in prompt
+    assert "Read before you write" in prompt
+    assert "verify the result" in prompt
+
+
+def test_identity_has_no_behavioral_instructions(tmp_path) -> None:
+    """Identity template should not contain behavioral rules or hardcoded name."""
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    identity = builder._get_identity(channel=None)
+    assert "You are nanobot" not in identity
+    assert "Act, don't narrate" not in identity
+    assert "Execution Rules" not in identity
+
+
+def test_system_prompt_does_not_warn_about_message_time_markers(tmp_path) -> None:
+    """Parroting is prevented by not annotating assistant turns in history;
+    no prompt-level warning about ``[Message Time: ...]`` is needed."""
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)
 
     prompt = builder.build_system_prompt()
-    assert "Act, don't narrate" in prompt
-    assert "Read before you write" in prompt
-    assert "verify the result" in prompt
+
+    assert "Message Time" not in prompt
+
+
+def test_default_soul_template_contains_execution_rules() -> None:
+    """Default SOUL.md template must contain execution rules with act/plan layering."""
+    soul = (pkg_files("nanobot") / "templates" / "SOUL.md").read_text(encoding="utf-8")
+    assert "## Execution Rules" in soul
+    assert "single-step tasks" in soul
+    assert "multi-step tasks" in soul
 
 
 def test_channel_format_hint_telegram(tmp_path) -> None:

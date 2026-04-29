@@ -7,13 +7,9 @@ All requests route to a single persistent API session.
 from __future__ import annotations
 
 import asyncio
-import base64
 import json as _json
-import mimetypes
-import re
 import time
 import uuid
-from pathlib import Path
 from typing import Any
 
 from aiohttp import web
@@ -21,14 +17,20 @@ from loguru import logger
 
 from nanobot.config.paths import get_media_dir
 from nanobot.utils.helpers import safe_filename
+from nanobot.utils.media_decode import (
+    FileSizeExceeded as _FileSizeExceeded,
+    MAX_FILE_SIZE,
+    save_base64_data_url as _save_base64_data_url,
+)
 from nanobot.utils.runtime import EMPTY_FINAL_RESPONSE_MESSAGE
 
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
-_DATA_URL_RE = re.compile(r"^data:([^;]+);base64,(.+)$", re.DOTALL)
-
-
-class _FileSizeExceeded(Exception):
-    """Raised when an uploaded file exceeds the size limit."""
+__all__ = (
+    "MAX_FILE_SIZE",
+    "_FileSizeExceeded",
+    "_save_base64_data_url",
+    "create_app",
+    "handle_chat_completions",
+)
 
 
 API_SESSION_KEY = "api:default"
@@ -100,25 +102,6 @@ _SSE_DONE = b"data: [DONE]\n\n"
 # ---------------------------------------------------------------------------
 # Upload helpers
 # ---------------------------------------------------------------------------
-
-
-def _save_base64_data_url(data_url: str, media_dir: Path) -> str | None:
-    """Decode a data:...;base64,... URL and save to disk."""
-    m = _DATA_URL_RE.match(data_url)
-    if not m:
-        return None
-    mime_type, b64_payload = m.group(1), m.group(2)
-    try:
-        raw = base64.b64decode(b64_payload)
-    except Exception:
-        return None
-    if len(raw) > MAX_FILE_SIZE:
-        raise _FileSizeExceeded(f"File exceeds {MAX_FILE_SIZE // (1024 * 1024)}MB limit")
-    ext = mimetypes.guess_extension(mime_type) or ".bin"
-    filename = f"{uuid.uuid4().hex[:12]}{ext}"
-    dest = media_dir / safe_filename(filename)
-    dest.write_bytes(raw)
-    return str(dest)
 
 
 def _parse_json_content(body: dict) -> tuple[str, list[str]]:
@@ -256,6 +239,7 @@ async def handle_chat_completions(request: web.Request) -> web.Response:
 
         chunk_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
         queue: asyncio.Queue[str | None] = asyncio.Queue()
+        stream_failed = False
 
         async def _on_stream(token: str) -> None:
             await queue.put(token)
@@ -264,6 +248,7 @@ async def handle_chat_completions(request: web.Request) -> web.Response:
             await queue.put(None)
 
         async def _run() -> None:
+            nonlocal stream_failed
             try:
                 async with session_lock:
                     await asyncio.wait_for(
@@ -279,6 +264,7 @@ async def handle_chat_completions(request: web.Request) -> web.Response:
                         timeout=timeout_s,
                     )
             except Exception:
+                stream_failed = True
                 logger.exception("Streaming error for session {}", session_key)
                 await queue.put(None)
 
@@ -292,8 +278,9 @@ async def handle_chat_completions(request: web.Request) -> web.Response:
         finally:
             task.cancel()
 
-        await resp.write(_sse_chunk("", model_name, chunk_id, finish_reason="stop"))
-        await resp.write(_SSE_DONE)
+        if not stream_failed:
+            await resp.write(_sse_chunk("", model_name, chunk_id, finish_reason="stop"))
+            await resp.write(_SSE_DONE)
         return resp
 
     # -- non-streaming path (original logic) --
