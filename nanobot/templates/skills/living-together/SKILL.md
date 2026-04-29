@@ -97,10 +97,12 @@ THEN
 IF 你生成的回复包含亲密/NSFW 描写：
    - 回顾你刚刚写的回复文本
    - 检查是否包含：身体接触、衣物变化、亲密动作、感官描写
+   - 回溯之前的聊天记录，提取当前剧情的：场景地点、角色穿着/身体状态、具体动作和姿势、情绪氛围
 THEN
-   1. 调用 image_gen 生成配图
-   2. 调用 message 工具，content=剧情文字, media=[图片路径]
-   3. 文字和图片合并为一条消息发送，不要分开发
+   1. 基于上述聊天上下文构建 image prompt（不要凭空编造场景）
+   2. 调用 image_gen 生成配图，reference_image 使用 ["__default__:nsfw"]
+   3. 调用 message 工具，content=剧情文字, media=[图片路径]
+   4. 文字和图片合并为一条消息发送，不要分开发
 ```
 
 ### Step 2: 场景分析
@@ -197,6 +199,7 @@ prompt = f"Maintain the original background from image 1. Blend the character fr
 - `"__default__:formal"` — 使用正式/礼服形象
 - `"__default__:winter"` — 使用冬季形象
 - `"__default__:sport"` — 使用运动装形象
+- `"__default__:nsfw"` — 使用 NSFW/亲密场景形象
 
 如果场景标签不存在，自动回退到默认形象。
 
@@ -789,7 +792,8 @@ prompt = f"...insert the character from image 2, {new_clothing}, standing next t
 ### NSFW 场景模板
 
 **重要规则：**
-- NSFW 场景为剧情驱动，用户不会上传照片，仅使用角色参考图（`__default__` 或 `__default__:nsfw`）
+- NSFW 场景为剧情驱动，用户不会上传照片，仅使用角色参考图（`__default__:nsfw`，如未配置则回退到 `__default__`）
+- **prompt 必须从之前的聊天上下文中提取场景信息**：回溯最近的对话记录，找到当前剧情的具体场景（地点、环境）、角色的穿着/身体状态、正在进行的动作和姿势、情绪氛围，将这些细节转化为 image prompt。绝不凭空编造与对话上下文无关的场景。
 - prompt 必须根据当前剧情的**具体动作、姿势、场景**动态生成，不能使用通用模板
 - 每次剧情推进到新的亲密动作时都应生成新图片，保持视觉叙事连贯
 - 尺寸推荐使用 `1024x1792`（竖向）
@@ -820,9 +824,9 @@ prompt = f"...insert the character from image 2, {new_clothing}, standing next t
 1. 人数：明确 "solo" 或 "only one person"，画面中只有 AI 伴侣一个完整角色
 2. 构图：优先使用 close-up（特写）或 upper body（半身），减少全身构图
 3. 观看者表现：绝不出现观看者的面部；最多出现一只手或手臂从画面边缘伸入
-4. 场景环境：从剧情上下文提取当前所在位置（卧室/浴室/客厅等）及环境细节
-5. 角色状态：当前的穿着状态、表情、体态
-6. 具体动作：精确描述当前剧情中正在发生的动作和姿势
+4. 场景环境：必须从之前的聊天记录中提取当前所在位置（卧室/浴室/客厅等）及环境细节，不要编造
+5. 角色状态：从聊天上下文中获取当前的穿着状态、表情、体态
+6. 具体动作：从聊天上下文中提取当前正在发生的动作和姿势，精确描述
 7. 氛围光照：匹配剧情情绪的光线和色调
 8. 防重复约束：必须附加 anatomy_suffix + anti_duplicate_suffix
 ```
@@ -841,10 +845,10 @@ prompt = f"close-up from below, {scene_setting}, solo, 1girl, {character_descrip
 # 示例3：需要表现互动 — 最多只露出一只手
 prompt = f"upper body shot, {scene_setting}, solo, 1girl, {character_description}, {specific_action_from_plot}, a single male hand gently touching her from edge of frame, {clothing_state}, {expression_and_emotion}, looking at viewer, {lighting_and_mood}, anatomically correct human body, correct number of fingers (5 per hand), natural human proportions, {anti_duplicate_suffix}"
 
-# 调用方式（NSFW 场景无用户照片，仅用角色参考图）
+# 调用方式（NSFW 场景无用户照片，使用 NSFW 专用参考图）
 image_gen(
     prompt=上述prompt,
-    reference_image=["__default__"],  # 仅角色参考图
+    reference_image=["__default__:nsfw"],  # NSFW 场景必须使用 :nsfw 参考图（如未配置则自动回退到 __default__）
     size="1024x1792"
 )
 ```
