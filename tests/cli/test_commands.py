@@ -1136,10 +1136,19 @@ def test_gateway_cron_job_suppresses_intermediate_progress(
             self.on_job = None
             seen["cron"] = self
 
+    class _FakeSession:
+        def get_history(self, max_messages=0):
+            return []
+
+    class _FakeSessionManager:
+        def get_or_create(self, key):
+            return _FakeSession()
+
     class _FakeAgentLoop:
         def __init__(self, *args, **kwargs) -> None:
             self.model = "test-model"
             self.tools = {}
+            self.sessions = _FakeSessionManager()
 
         async def process_direct(self, *_args, on_progress=None, **_kwargs):
             seen["on_progress"] = on_progress
