@@ -11,6 +11,12 @@ from loguru import logger
 
 from nanobot.bus.events import InboundMessage, OutboundMessage
 from nanobot.bus.queue import MessageBus
+from nanobot.pairing import (
+    PAIRING_CODE_META_KEY,
+    format_pairing_reply,
+    generate_code,
+    is_approved,
+)
 
 
 class BaseChannel(ABC):
@@ -23,10 +29,9 @@ class BaseChannel(ABC):
 
     name: str = "base"
     display_name: str = "Base"
-    transcription_provider: str = "groq"
-    transcription_api_key: str = ""
-    transcription_api_base: str = ""
-    transcription_language: str | None = None
+    send_progress: bool = True
+    send_tool_hints: bool = False
+    show_reasoning: bool = True
 
     def __init__(self, config: Any, bus: MessageBus):
         """
@@ -37,34 +42,24 @@ class BaseChannel(ABC):
             bus: The message bus for communication.
         """
         self.config = config
+        self.logger = logger.bind(channel=self.name)
         self.bus = bus
         self._running = False
-        # Message merge buffers: key → {content, media, metadata, ...}
         self._merge_buffers: dict[str, dict[str, Any]] = {}
         self._merge_timers: dict[str, asyncio.Task] = {}
 
     async def transcribe_audio(self, file_path: str | Path) -> str:
         """Transcribe an audio file via Whisper (OpenAI or Groq). Returns empty string on failure."""
-        if not self.transcription_api_key:
-            return ""
         try:
-            if self.transcription_provider == "openai":
-                from nanobot.providers.transcription import OpenAITranscriptionProvider
-                provider = OpenAITranscriptionProvider(
-                    api_key=self.transcription_api_key,
-                    api_base=self.transcription_api_base or None,
-                    language=self.transcription_language or None,
-                )
-            else:
-                from nanobot.providers.transcription import GroqTranscriptionProvider
-                provider = GroqTranscriptionProvider(
-                    api_key=self.transcription_api_key,
-                    api_base=self.transcription_api_base or None,
-                    language=self.transcription_language or None,
-                )
-            return await provider.transcribe(file_path)
-        except Exception as e:
-            logger.warning("{}: audio transcription failed: {}", self.name, e)
+            from nanobot.audio.transcription import (
+                resolve_transcription_config,
+                transcribe_audio_file,
+            )
+            from nanobot.config.loader import load_config
+
+            return await transcribe_audio_file(file_path, resolve_transcription_config(load_config()))
+        except Exception:
+            self.logger.exception("Audio transcription failed")
             return ""
 
     async def login(self, force: bool = False) -> bool:
@@ -121,6 +116,66 @@ class BaseChannel(ABC):
         """
         pass
 
+    async def send_reasoning_delta(
+        self, chat_id: str, delta: str, metadata: dict[str, Any] | None = None
+    ) -> None:
+        """Stream a chunk of model reasoning/thinking content.
+
+        Default is no-op. Channels with a native low-emphasis primitive
+        (Slack context block, Telegram expandable blockquote, Discord
+        subtext, WebUI italic bubble, ...) override to render reasoning
+        as a subordinate trace that updates in place as the model thinks.
+
+        Streaming contract mirrors :meth:`send_delta`: ``_reasoning_delta``
+        is a chunk, ``_reasoning_end`` ends the current reasoning segment,
+        and stateful implementations should key buffers by ``_stream_id``
+        rather than only by ``chat_id``.
+        """
+        return
+
+    async def send_reasoning_end(
+        self, chat_id: str, metadata: dict[str, Any] | None = None
+    ) -> None:
+        """Mark the end of a reasoning stream segment.
+
+        Default is no-op. Channels that buffer ``send_reasoning_delta``
+        chunks for in-place updates use this signal to flush and freeze
+        the rendered group; one-shot channels can ignore it entirely.
+        """
+        return
+
+    async def send_file_edit_events(
+        self,
+        chat_id: str,
+        edits: list[dict[str, Any]],
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Deliver structured live file-edit events.
+
+        Default is no-op. Channels with a rich activity surface can override
+        this to render editing progress without receiving empty text messages.
+        """
+        return
+
+    async def send_reasoning(self, msg: OutboundMessage) -> None:
+        """Deliver a complete reasoning block.
+
+        Default implementation reuses the streaming pair so plugins only
+        need to override the delta/end methods. Equivalent to one delta
+        with the full content followed immediately by an end marker —
+        keeps a single rendering path for both streamed and one-shot
+        reasoning (e.g. DeepSeek-R1's final-response ``reasoning_content``).
+        """
+        if not msg.content:
+            return
+        meta = dict(msg.metadata or {})
+        meta.setdefault("_reasoning_delta", True)
+        await self.send_reasoning_delta(msg.chat_id, msg.content, meta)
+        end_meta = dict(meta)
+        end_meta.pop("_reasoning_delta", None)
+        end_meta["_reasoning_end"] = True
+        await self.send_reasoning_end(msg.chat_id, end_meta)
+
     @property
     def supports_streaming(self) -> bool:
         """True when config enables streaming AND this subclass implements send_delta."""
@@ -129,29 +184,79 @@ class BaseChannel(ABC):
         return bool(streaming) and type(self).send_delta is not BaseChannel.send_delta
 
     def is_allowed(self, sender_id: str) -> bool:
-        """Check if *sender_id* is permitted.  Empty list → deny all; ``"*"`` → allow all."""
+        """Check sender permission: star > allowlist > pairing store > deny."""
         if isinstance(self.config, dict):
-            if "allow_from" in self.config:
-                allow_list = self.config.get("allow_from")
-            else:
-                allow_list = self.config.get("allowFrom", [])
+            allow_list = self.config.get("allow_from") or self.config.get("allowFrom") or []
         else:
-            allow_list = getattr(self.config, "allow_from", [])
-        if not allow_list:
-            logger.warning("{}: allow_from is empty — all access denied", self.name)
-            return False
+            allow_list = getattr(self.config, "allow_from", None) or []
         if "*" in allow_list:
             return True
-        return str(sender_id) in allow_list
+        # allowFrom entries are opaque tokens — must match exactly.
+        if str(sender_id) in allow_list:
+            return True
+        if is_approved(self.name, str(sender_id)):
+            return True
+        return False
 
     def _get_merge_window(self) -> float:
-        """Get merge window from channels config. Returns 0 if disabled."""
+        """Return the inbound message merge window in seconds."""
         try:
-            # Access the parent channels config via bus (set by ChannelManager)
             merge_s = getattr(self, "_merge_window_s", 0.0)
             return float(merge_s) if merge_s else 0.0
         except Exception:
             return 0.0
+
+    async def _publish_inbound(
+        self,
+        *,
+        sender_id: str,
+        chat_id: str,
+        content: str,
+        media: list[str] | None,
+        metadata: dict[str, Any],
+        session_key: str | None,
+    ) -> None:
+        msg = InboundMessage(
+            channel=self.name,
+            sender_id=str(sender_id),
+            chat_id=str(chat_id),
+            content=content,
+            media=media or [],
+            metadata=metadata,
+            session_key_override=session_key,
+        )
+        await self.bus.publish_inbound(msg)
+
+    async def _flush_merge_buffer(self, merge_key: str, delay: float) -> None:
+        """Wait for the merge window, then publish buffered messages as one inbound turn."""
+        try:
+            await asyncio.sleep(delay)
+        except asyncio.CancelledError:
+            return
+
+        buf = self._merge_buffers.pop(merge_key, None)
+        self._merge_timers.pop(merge_key, None)
+        if not buf:
+            return
+
+        merged_content = "\n".join(buf["contents"]) if buf["contents"] else ""
+        merged_media = list(dict.fromkeys(buf["media"]))
+        if len(buf["contents"]) > 1 or merged_media:
+            self.logger.info(
+                "Flushing merged message for {} ({} text parts, {} media)",
+                merge_key,
+                len(buf["contents"]),
+                len(merged_media),
+            )
+
+        await self._publish_inbound(
+            sender_id=buf["sender_id"],
+            chat_id=buf["chat_id"],
+            content=merged_content,
+            media=merged_media,
+            metadata=buf["metadata"],
+            session_key=buf["session_key"],
+        )
 
     async def _handle_message(
         self,
@@ -161,123 +266,79 @@ class BaseChannel(ABC):
         media: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
         session_key: str | None = None,
+        is_dm: bool = False,
     ) -> None:
-        """
-        Handle an incoming message from the chat platform.
-
-        This method checks permissions and forwards to the bus.
-        If merge_window_s > 0, messages from the same sender in the same chat
-        are buffered and merged before dispatch.
-
-        Args:
-            sender_id: The sender's identifier.
-            chat_id: The chat/channel identifier.
-            content: Message text content.
-            media: Optional list of media URLs.
-            metadata: Optional channel-specific metadata.
-            session_key: Optional session key override (e.g. thread-scoped sessions).
-        """
+        """Handle an incoming message: check permissions, issue pairing codes in DMs, or forward to bus."""
         if not self.is_allowed(sender_id):
-            logger.warning(
-                "Access denied for sender {} on channel {}. "
-                "Add them to allowFrom list in config to grant access.",
-                sender_id, self.name,
-            )
+            if is_dm:
+                code = generate_code(self.name, str(sender_id))
+                await self.send(
+                    OutboundMessage(
+                        channel=self.name,
+                        chat_id=str(chat_id),
+                        content=format_pairing_reply(code),
+                        metadata={PAIRING_CODE_META_KEY: code},
+                    )
+                )
+                self.logger.info(
+                    "Sent pairing code {} to sender {} in chat {}",
+                    code, sender_id, chat_id,
+                )
+            else:
+                self.logger.warning(
+                    "Access denied for sender {}. "
+                    "Add them to allowFrom list in config to grant access.",
+                    sender_id,
+                )
             return
 
-        merge_window = self._get_merge_window()
+        meta = dict(metadata or {})
+        if self.supports_streaming:
+            meta = {**meta, "_wants_stream": True}
 
+        merge_window = self._get_merge_window()
         if merge_window <= 0:
-            # No merging — dispatch immediately (original behavior)
-            meta = metadata or {}
-            if self.supports_streaming:
-                meta = {**meta, "_wants_stream": True}
-            msg = InboundMessage(
-                channel=self.name,
+            await self._publish_inbound(
                 sender_id=str(sender_id),
                 chat_id=str(chat_id),
                 content=content,
-                media=media or [],
+                media=media,
                 metadata=meta,
-                session_key_override=session_key,
+                session_key=session_key,
             )
-            await self.bus.publish_inbound(msg)
             return
 
-        # --- Merge mode ---
-        meta = metadata or {}
         merge_key = f"{self.name}:{chat_id}:{sender_id}"
-
         if merge_key in self._merge_buffers:
-            # Append to existing buffer
             buf = self._merge_buffers[merge_key]
             if content and content.strip():
                 buf["contents"].append(content)
             if media:
                 buf["media"].extend(media)
-            # Keep latest metadata (merge dicts)
             if meta:
                 buf["metadata"].update(meta)
-            logger.debug(
-                "{}: merged message into buffer for {} (now {} parts, {} media)",
-                self.name, merge_key, len(buf["contents"]), len(buf["media"]),
+            self.logger.debug(
+                "Merged message into buffer for {} ({} parts, {} media)",
+                merge_key,
+                len(buf["contents"]),
+                len(buf["media"]),
             )
         else:
-            # Create new buffer
             self._merge_buffers[merge_key] = {
                 "sender_id": str(sender_id),
                 "chat_id": str(chat_id),
                 "contents": [content] if content and content.strip() else [],
                 "media": list(media or []),
-                "metadata": dict(meta),
+                "metadata": meta,
                 "session_key": session_key,
             }
-            logger.debug("{}: new merge buffer for {}", self.name, merge_key)
+            self.logger.debug("New merge buffer for {}", merge_key)
 
-        # Cancel existing timer and start a new one (debounce reset)
         if merge_key in self._merge_timers:
             self._merge_timers[merge_key].cancel()
-
         self._merge_timers[merge_key] = asyncio.create_task(
             self._flush_merge_buffer(merge_key, merge_window)
         )
-
-    async def _flush_merge_buffer(self, merge_key: str, delay: float) -> None:
-        """Wait for the merge window, then flush the buffered messages as one."""
-        try:
-            await asyncio.sleep(delay)
-        except asyncio.CancelledError:
-            return
-
-        buf = self._merge_buffers.pop(merge_key, None)
-        self._merge_timers.pop(merge_key, None)
-
-        if not buf:
-            return
-
-        # Merge all content parts with newlines, deduplicate media
-        merged_content = "\n".join(buf["contents"]) if buf["contents"] else ""
-        merged_media = list(dict.fromkeys(buf["media"]))  # preserve order, deduplicate
-
-        parts_count = len(buf["contents"])
-        media_count = len(merged_media)
-        if parts_count > 1 or media_count > 0:
-            logger.info(
-                "{}: flushing merged message for {} ({} text parts, {} media)",
-                self.name, merge_key, parts_count, media_count,
-            )
-
-        msg = InboundMessage(
-            channel=self.name,
-            sender_id=buf["sender_id"],
-            chat_id=buf["chat_id"],
-            content=merged_content,
-            media=merged_media,
-            metadata=buf["metadata"],
-            session_key_override=buf["session_key"],
-        )
-
-        await self.bus.publish_inbound(msg)
 
     @classmethod
     def default_config(cls) -> dict[str, Any]:

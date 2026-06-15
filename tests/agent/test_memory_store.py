@@ -5,7 +5,7 @@ from datetime import datetime
 
 import pytest
 
-from nanobot.agent.memory import MemoryStore, _HISTORY_ENTRY_HARD_CAP
+from nanobot.agent.memory import _HISTORY_ENTRY_HARD_CAP, MemoryStore
 
 
 @pytest.fixture
@@ -58,6 +58,12 @@ class TestHistoryWithCursor:
         data = json.loads(content)
         assert data["cursor"] == 1
 
+    def test_append_history_includes_session_key_when_provided(self, store):
+        store.append_history("event 1", session_key="telegram:chat-1")
+        content = store.read_file(store.history_file)
+        data = json.loads(content)
+        assert data["session_key"] == "telegram:chat-1"
+
     def test_cursor_persists_across_appends(self, store):
         store.append_history("event 1")
         store.append_history("event 2")
@@ -106,6 +112,54 @@ class TestHistoryWithCursor:
         entries = store.read_unprocessed_history(since_cursor=0)
         assert len(entries) == 2
 
+    def test_prompt_history_filters_to_current_session(self, store):
+        store.append_history("legacy entry without session")
+        store.append_history("telegram entry", session_key="telegram:chat-1")
+        store.append_history("slack entry", session_key="slack:chat-2")
+
+        entries = store.read_recent_history_for_prompt(
+            since_cursor=0,
+            session_key="telegram:chat-1",
+        )
+
+        assert [e["content"] for e in entries] == ["telegram entry"]
+        assert [e["content"] for e in store.read_unprocessed_history(0)] == [
+            "legacy entry without session",
+            "telegram entry",
+            "slack entry",
+        ]
+
+    def test_unified_prompt_history_excludes_internal_cron_sessions(self, store):
+        store.append_history("legacy entry without session")
+        store.append_history("unified entry", session_key="unified:default")
+        store.append_history("telegram entry", session_key="telegram:chat-1")
+        store.append_history("cron internal entry", session_key="cron:job-1")
+
+        entries = store.read_recent_history_for_prompt(
+            since_cursor=0,
+            session_key="unified:default",
+            unified_session=True,
+        )
+
+        assert [e["content"] for e in entries] == [
+            "legacy entry without session",
+            "unified entry",
+            "telegram entry",
+        ]
+
+    def test_unified_cron_prompt_history_includes_own_cron_entry(self, store):
+        store.append_history("unified entry", session_key="unified:default")
+        store.append_history("other cron entry", session_key="cron:job-2")
+        store.append_history("own cron entry", session_key="cron:job-1")
+
+        entries = store.read_recent_history_for_prompt(
+            since_cursor=0,
+            session_key="cron:job-1",
+            unified_session=True,
+        )
+
+        assert [e["content"] for e in entries] == ["unified entry", "own cron entry"]
+
     def test_read_unprocessed_skips_entries_without_cursor(self, store):
         """Regression: entries missing the cursor key should be silently skipped."""
         store.history_file.write_text(
@@ -129,6 +183,33 @@ class TestHistoryWithCursor:
         cursor = store.append_history("new event")
         assert cursor == 1
 
+    def test_append_history_allocates_unique_cursors_under_concurrent_writes(self, store):
+        """Regression: concurrent appends must not allocate duplicate cursors."""
+        import threading
+
+        writers = 16
+        start = threading.Barrier(writers)
+        cursors: list[int] = []
+        lock = threading.Lock()
+
+        def worker(i):
+            start.wait()
+            c = store.append_history(f"event {i}")
+            with lock:
+                cursors.append(c)
+
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(writers)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(cursors) == writers
+        assert len(set(cursors)) == writers, f"duplicate cursors: {sorted(cursors)}"
+        assert sorted(cursors) == list(range(1, writers + 1))
+        persisted = store.read_unprocessed_history(since_cursor=0)
+        assert sorted(e["cursor"] for e in persisted) == list(range(1, writers + 1))
+
     def test_compact_history_drops_oldest(self, tmp_path):
         store = MemoryStore(tmp_path, max_history_entries=2)
         store.append_history("event 1")
@@ -140,6 +221,49 @@ class TestHistoryWithCursor:
         entries = store.read_unprocessed_history(since_cursor=0)
         assert len(entries) == 2
         assert entries[0]["cursor"] in {4, 5}
+
+    def test_write_entries_uses_atomic_write(self, tmp_path):
+        """_write_entries uses temp file + os.replace for atomicity."""
+        store = MemoryStore(tmp_path)
+        store.append_history("event 1")
+        store.append_history("event 2")
+        store.append_history("event 3")
+        entries = store.read_unprocessed_history(since_cursor=0)
+
+        # Monitor temp file existence
+        tmp_path_obj = store.history_file.with_suffix(".jsonl.tmp")
+        assert not tmp_path_obj.exists()  # Should not exist initially
+
+        # Call _write_entries
+        store._write_entries(entries)
+
+        # Temp file should be cleaned up
+        assert not tmp_path_obj.exists()
+        # Original file should exist
+        assert store.history_file.exists()
+
+    def test_write_entries_cleans_up_tmp_on_exception(self, tmp_path, monkeypatch):
+        """Exception during _write_entries cleans up the temp file."""
+        store = MemoryStore(tmp_path)
+        store.append_history("event 1")
+        entries = store.read_unprocessed_history(since_cursor=0)
+
+        tmp_path_obj = store.history_file.with_suffix(".jsonl.tmp")
+
+        # Mock os.replace to raise an exception
+        def failing_replace(*args, **kwargs):
+            raise RuntimeError("Simulated failure")
+
+        monkeypatch.setattr('os.replace', failing_replace)
+
+        with pytest.raises(RuntimeError):
+            store._write_entries(entries)
+
+        # Temp file should be cleaned up
+        assert not tmp_path_obj.exists()
+
+        # Original file should still exist (because replace failed)
+        assert store.history_file.exists()
 
 
 class TestAppendHistoryHardCap:
@@ -197,6 +321,26 @@ class TestDreamCursor:
         store.set_last_dream_cursor(3)
         store2 = MemoryStore(store.workspace)
         assert store2.get_last_dream_cursor() == 3
+
+    def test_git_restore_rolls_back_dream_cursor(self, tmp_path):
+        store = MemoryStore(tmp_path)
+        store.write_memory("before")
+        store.set_last_dream_cursor(1)
+        assert store.git.init() is True
+
+        store.write_memory("after")
+        store.set_last_dream_cursor(2)
+        dream_sha = store.git.auto_commit("dream: update")
+        assert dream_sha is not None
+
+        store.write_memory("newer")
+        store.set_last_dream_cursor(3)
+
+        restore_sha = store.git.revert(dream_sha)
+
+        assert restore_sha is not None
+        assert store.read_memory() == "before"
+        assert store.get_last_dream_cursor() == 1
 
 
 class TestLegacyHistoryMigration:
