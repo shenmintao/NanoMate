@@ -5,14 +5,14 @@
   <p>
     <img src="https://img.shields.io/badge/python-≥3.11-blue" alt="Python">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-    <img src="https://img.shields.io/badge/base-nanobot_v0.1.5.post1-orange" alt="Based on nanobot">
+    <img src="https://img.shields.io/badge/base-nanobot_v0.2.1-orange" alt="Based on nanobot">
   </p>
   <p><a href="./README.md">English</a> | 中文</p>
 </div>
 
 **NanoMate** 是 [nanobot](https://github.com/HKUDS/nanobot) 的增强分支，集成了 [SillyTavern](https://github.com/SillyTavern/SillyTavern) 角色卡系统，并新增**伴侣模式** —— 将轻量级 AI Agent 变成拥有角色身份、视觉想象、情感感知和语音能力的 AI 伙伴。
 
-> 当前同步上游 nanobot **v0.1.5.post1**（2026-04-16）。
+> 当前同步上游 nanobot **v0.2.1**（2026-06-01），并已合并 2026-06-16 前后的 `upstream/main` 更新。
 
 ## 与 nanobot 有什么不同？
 
@@ -362,7 +362,7 @@ nanobot/
     skills/
       living-together/     # 伴侣模式：共同时刻图像生成（可定制）
       emotional-companion/ # 伴侣模式：主动关怀与情绪追踪（可定制）
-    memory/                # Dream 记忆整合 Jinja2 模板（上游 v0.1.5）
+    memory/                # Dream 记忆整合 Jinja2 模板（跟随上游）
   skills/
     translate/           # 内置：忠实全文翻译
     github/              # 内置：GitHub CLI 集成
@@ -377,12 +377,12 @@ nanobot/
     transcription.py           # 统一音频转写（OpenAI/Groq Whisper）
   agent/tools/
     image_gen.py         # 多模型图像生成与合成
-    search.py            # 内置 grep/glob 搜索工具（上游 v0.1.5）
+    search.py            # 内置 grep/glob 搜索工具（跟随上游）
     shell.py             # Exec 工具（bwrap 沙箱支持）
   utils/
-    gitstore.py          # Git 版本控制记忆存储（上游 v0.1.5）
-    runtime.py           # 运行时响应保护（上游 v0.1.5）
-    searchusage.py       # 网络搜索用量追踪（上游 v0.1.5）
+    gitstore.py          # Git 版本控制记忆存储（跟随上游）
+    runtime.py           # 运行时响应保护（跟随上游）
+    searchusage.py       # 网络搜索用量追踪（跟随上游）
   api/
     server.py            # OpenAI 兼容 API（/v1/chat/completions）
 bridge/                  # WhatsApp 桥接（TypeScript/Node.js）

@@ -34,8 +34,8 @@
 NanoMate is fully compatible with nanobot. Start with the standard setup:
 
 ```bash
-git clone https://github.com/shenmintao/nanobot.git
-cd nanobot
+git clone https://github.com/shenmintao/NanoMate.git
+cd NanoMate
 pip install -e .
 nanobot init
 ```
@@ -170,7 +170,7 @@ The preset controls *how* the AI talks (tone, boundaries, roleplay depth). The c
 Set `always: true` in the SKILL.md frontmatter:
 
 ```yaml
-# nanobot/skills/living-together/SKILL.md
+# nanobot/templates/skills/living-together/SKILL.md
 ---
 name: living-together
 always: true    # Change from false to true
@@ -178,7 +178,7 @@ always: true    # Change from false to true
 ```
 
 ```yaml
-# nanobot/skills/emotional-companion/SKILL.md
+# nanobot/templates/skills/emotional-companion/SKILL.md
 ---
 name: emotional-companion
 always: true    # Change from false to true
@@ -187,7 +187,7 @@ always: true    # Change from false to true
 
 **Step 3: (Optional) Customize the skills.**
 
-The skills are templates. Read them (`nanobot/skills/living-together/SKILL.md`, `nanobot/skills/emotional-companion/SKILL.md`) and adjust trigger rules, prompt templates, and behavioral constraints to match your character and preferences.
+The skills are templates. Read them (`nanobot/templates/skills/living-together/SKILL.md`, `nanobot/templates/skills/emotional-companion/SKILL.md`) and adjust trigger rules, prompt templates, and behavioral constraints to match your character and preferences.
 
 #### Living-Together Skill
 

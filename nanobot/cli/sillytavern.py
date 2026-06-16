@@ -345,7 +345,7 @@ def preset_show(name: str = typer.Argument(..., help="Preset name")):
             console.print(f"Top K: {preset.data.top_k}")
             console.print(f"Frequency Penalty: {preset.data.frequency_penalty}")
             console.print(f"Presence Penalty: {preset.data.presence_penalty}")
-            console.print(f"\n[bold]Prompt Entries:[/bold]\n")
+            console.print("\n[bold]Prompt Entries:[/bold]\n")
 
             table = Table()
             table.add_column("#", style="dim", width=4)
@@ -396,14 +396,14 @@ def preset_toggle_prompt(
                 # Single index
                 indices.append(int(part))
     except ValueError:
-        console.print(f"[red]Invalid index format. Use: 3 or 3,4,5 or 3-6[/red]")
+        console.print("[red]Invalid index format. Use: 3 or 3,4,5 or 3-6[/red]")
         return
 
     for p in list_presets():
         if p.get("name", "").lower() == preset_name.lower():
             preset = get_preset(p["id"])
             if not preset:
-                console.print(f"[red]Failed to load preset[/red]")
+                console.print("[red]Failed to load preset[/red]")
                 return
 
             toggled = []
@@ -424,7 +424,7 @@ def preset_toggle_prompt(
                 console.print(f"[yellow]Warning: Invalid indices skipped: {invalid}[/yellow]")
 
             if not toggled:
-                console.print(f"[red]No valid prompts to toggle[/red]")
+                console.print("[red]No valid prompts to toggle[/red]")
                 return
 
             # Save the updated preset
@@ -450,7 +450,7 @@ def preset_enable_all(
         if p.get("name", "").lower() == preset_name.lower():
             preset = get_preset(p["id"])
             if not preset:
-                console.print(f"[red]Failed to load preset[/red]")
+                console.print("[red]Failed to load preset[/red]")
                 return
 
             count = 0
@@ -462,7 +462,7 @@ def preset_enable_all(
                     count += 1
 
             if count == 0:
-                console.print(f"[dim]No prompts changed (all matching prompts already enabled)[/dim]")
+                console.print("[dim]No prompts changed (all matching prompts already enabled)[/dim]")
                 return
 
             # Save the updated preset
@@ -487,7 +487,7 @@ def preset_disable_all(
         if p.get("name", "").lower() == preset_name.lower():
             preset = get_preset(p["id"])
             if not preset:
-                console.print(f"[red]Failed to load preset[/red]")
+                console.print("[red]Failed to load preset[/red]")
                 return
 
             count = 0
@@ -499,7 +499,7 @@ def preset_disable_all(
                     count += 1
 
             if count == 0:
-                console.print(f"[dim]No prompts changed (all matching prompts already disabled)[/dim]")
+                console.print("[dim]No prompts changed (all matching prompts already disabled)[/dim]")
                 return
 
             # Save the updated preset
