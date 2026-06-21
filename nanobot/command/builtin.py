@@ -12,8 +12,6 @@ from dataclasses import dataclass
 from nanobot import __version__
 from nanobot.bus.events import OutboundMessage
 from nanobot.command.router import CommandContext, CommandRouter
-from nanobot.utils.helpers import build_status_content
-from nanobot.utils.restart import set_restart_notice_to_env
 
 
 @dataclass(frozen=True)
@@ -105,6 +103,13 @@ BUILTIN_COMMAND_SPECS: tuple[BuiltinCommandSpec, ...] = (
         "wrench",
     ),
     BuiltinCommandSpec(
+        "/approval",
+        "Review approvals",
+        "List, approve, or reject pending agent writes.",
+        "check-check",
+        "[approve|reject <id>|all]",
+    ),
+    BuiltinCommandSpec(
         "/help",
         "Show help",
         "List available slash commands.",
@@ -139,6 +144,8 @@ async def cmd_stop(ctx: CommandContext) -> OutboundMessage:
 
 async def cmd_restart(ctx: CommandContext) -> OutboundMessage:
     """Restart the process in-place via os.execv."""
+    from nanobot.utils.restart import set_restart_notice_to_env
+
     msg = ctx.msg
     set_restart_notice_to_env(
         channel=msg.channel,
@@ -159,6 +166,8 @@ async def cmd_restart(ctx: CommandContext) -> OutboundMessage:
 
 async def cmd_status(ctx: CommandContext) -> OutboundMessage:
     """Build an outbound status message for a session."""
+    from nanobot.utils.helpers import build_status_content
+
     loop = ctx.loop
     session = ctx.session or loop.sessions.get_or_create(ctx.key)
     ctx_est = 0
@@ -677,6 +686,171 @@ async def cmd_pairing(ctx: CommandContext) -> OutboundMessage:
     )
 
 
+def _approval_store(ctx: CommandContext):
+    from nanobot.agent.approvals import ApprovalStore
+
+    return ApprovalStore(ctx.loop.workspace)
+
+
+def _format_approval_record(record: dict) -> str:
+    created = int(record.get("created_at") or 0)
+    age = max(0, int(time.time()) - created) if created else 0
+    age_text = f"{age // 60}m ago" if age >= 60 else f"{age}s ago"
+    return (
+        f"- `{record.get('id', '')}` {record.get('summary', '').strip()}"
+        f" ({record.get('kind', 'unknown')}, {age_text})"
+    )
+
+
+def _format_pending_approvals(records: list[dict]) -> str:
+    if not records:
+        return "No pending approvals for this chat."
+    lines = [
+        f"Pending approvals ({len(records)}):",
+        "",
+        *[_format_approval_record(record) for record in records],
+        "",
+        "Reply `批准 <id>` / `拒绝 <id>`, or use `/approval approve <id>`.",
+        "If there is only one item, `批准` or `拒绝` is enough.",
+    ]
+    if len(records) > 1:
+        lines.append("Use `全部批准` / `全部拒绝` to apply all pending items in this chat.")
+    return "\n".join(lines)
+
+
+def _apply_approval(ctx: CommandContext, record: dict) -> tuple[bool, str]:
+    if record.get("kind") == "skill_manage":
+        from nanobot.agent.tools.skill_manage import apply_skill_manage_payload
+
+        result = apply_skill_manage_payload(ctx.loop.workspace, record.get("payload") or {})
+        if result.get("success"):
+            _approval_store(ctx).remove(str(record.get("id") or ""))
+            message = result.get("message") or "Approval applied."
+            return True, f"Approved `{record.get('id')}`: {message}"
+        return False, f"Could not apply `{record.get('id')}`: {result.get('error', 'unknown error')}"
+    return False, f"Unknown approval kind: {record.get('kind')}"
+
+
+def _reject_approval(ctx: CommandContext, record: dict) -> str:
+    _approval_store(ctx).remove(str(record.get("id") or ""))
+    return f"Rejected `{record.get('id')}`: {record.get('summary', '').strip()}"
+
+
+def _select_approval(ctx: CommandContext, approval_id: str | None) -> tuple[dict | None, str | None]:
+    store = _approval_store(ctx)
+    if approval_id:
+        record = store.get(approval_id, session_key=ctx.key)
+        if record is None:
+            return None, f"No pending approval matched `{approval_id}` for this chat."
+        return record, None
+
+    records = store.list(session_key=ctx.key)
+    if not records:
+        return None, "No pending approvals for this chat."
+    if len(records) > 1:
+        return None, _format_pending_approvals(records)
+    return records[0], None
+
+
+async def cmd_approval(ctx: CommandContext) -> OutboundMessage:
+    """List, approve, or reject pending agent writes."""
+    args = ctx.args.strip()
+    command_name = ctx.raw.strip().split(maxsplit=1)[0].lower() if ctx.raw.strip() else ""
+    if command_name == "/approve":
+        args = f"approve {args}".strip()
+    elif command_name == "/reject":
+        args = f"reject {args}".strip()
+    parts = args.split()
+    store = _approval_store(ctx)
+    metadata = {**dict(ctx.msg.metadata or {}), "render_as": "text"}
+
+    if not parts or parts[0].lower() in {"list", "pending"}:
+        return OutboundMessage(
+            channel=ctx.msg.channel,
+            chat_id=ctx.msg.chat_id,
+            content=_format_pending_approvals(store.list(session_key=ctx.key)),
+            metadata=metadata,
+        )
+
+    action = parts[0].lower()
+    approval_id = parts[1] if len(parts) > 1 else None
+    if action in {"approve", "批准"}:
+        if approval_id and approval_id.lower() in {"all", "全部"}:
+            lines = []
+            for record in store.list(session_key=ctx.key):
+                _ok, line = _apply_approval(ctx, record)
+                lines.append(line)
+            content = "\n".join(lines) if lines else "No pending approvals for this chat."
+        else:
+            record, error = _select_approval(ctx, approval_id)
+            if record is None:
+                content = error or "No pending approval matched."
+            else:
+                _ok, content = _apply_approval(ctx, record)
+    elif action in {"reject", "deny", "拒绝"}:
+        if approval_id and approval_id.lower() in {"all", "全部"}:
+            records = store.list(session_key=ctx.key)
+            content = "\n".join(_reject_approval(ctx, record) for record in records)
+            if not content:
+                content = "No pending approvals for this chat."
+        else:
+            record, error = _select_approval(ctx, approval_id)
+            content = error if record is None else _reject_approval(ctx, record)
+    else:
+        content = "Usage: `/approval [list|approve <id>|reject <id>]`"
+
+    return OutboundMessage(
+        channel=ctx.msg.channel,
+        chat_id=ctx.msg.chat_id,
+        content=content,
+        metadata=metadata,
+    )
+
+
+async def maybe_handle_approval_reply(ctx: CommandContext) -> OutboundMessage | None:
+    """Handle plain-language approval replies before the normal agent turn."""
+    text = ctx.raw.strip()
+    lowered = text.lower()
+    approve_words = {"批准", "同意", "确认", "approve", "approved", "yes", "ok"}
+    reject_words = {"拒绝", "否决", "不同意", "reject", "deny", "denied", "no"}
+    approve_all_words = {"全部批准", "全都批准", "approve all", "all approve"}
+    reject_all_words = {"全部拒绝", "全都拒绝", "reject all", "deny all", "all reject"}
+
+    words = text.split()
+    first = words[0] if words else ""
+    first_lower = first.lower()
+    action: str | None = None
+    approval_id: str | None = words[1] if len(words) > 1 else None
+
+    if text in approve_all_words or lowered in approve_all_words:
+        action = "approve"
+        approval_id = "all"
+    elif text in reject_all_words or lowered in reject_all_words:
+        action = "reject"
+        approval_id = "all"
+    elif first in approve_words or first_lower in approve_words:
+        action = "approve"
+    elif first in reject_words or first_lower in reject_words:
+        action = "reject"
+    else:
+        return None
+
+    if not _approval_store(ctx).list(session_key=ctx.key):
+        return None
+    command = f"/approval {action}"
+    if approval_id:
+        command = f"{command} {approval_id}"
+    forwarded = CommandContext(
+        msg=ctx.msg,
+        session=ctx.session,
+        key=ctx.key,
+        raw=command,
+        args=command[len("/approval "):],
+        loop=ctx.loop,
+    )
+    return await cmd_approval(forwarded)
+
+
 async def cmd_skill(ctx: CommandContext) -> OutboundMessage:
     """List all enabled skills (name and description only)."""
     loop = ctx.loop
@@ -736,6 +910,12 @@ def register_builtin_commands(router: CommandRouter) -> None:
     router.exact("/dream-restore", cmd_dream_restore)
     router.prefix("/dream-restore ", cmd_dream_restore)
     router.exact("/skill", cmd_skill)
+    router.exact("/approval", cmd_approval)
+    router.prefix("/approval ", cmd_approval)
+    router.exact("/approve", cmd_approval)
+    router.prefix("/approve ", cmd_approval)
+    router.exact("/reject", cmd_approval)
+    router.prefix("/reject ", cmd_approval)
     router.exact("/help", cmd_help)
     router.exact("/pairing", cmd_pairing)
     router.prefix("/pairing ", cmd_pairing)

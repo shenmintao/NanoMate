@@ -1,11 +1,30 @@
 """Agent core module."""
 
-from nanobot.agent.context import ContextBuilder
-from nanobot.agent.hook import AgentHook, AgentHookContext, AgentRunHookContext, CompositeHook
-from nanobot.agent.loop import AgentLoop
-from nanobot.agent.memory import MemoryStore
-from nanobot.agent.skills import SkillsLoader
-from nanobot.agent.subagent import SubagentManager
+from importlib import import_module
+from typing import Any
+
+_LAZY_EXPORTS = {
+    "AgentHook": ".hook",
+    "AgentHookContext": ".hook",
+    "AgentRunHookContext": ".hook",
+    "AgentLoop": ".loop",
+    "CompositeHook": ".hook",
+    "ContextBuilder": ".context",
+    "MemoryStore": ".memory",
+    "SkillsLoader": ".skills",
+    "SubagentManager": ".subagent",
+}
+
+
+def __getattr__(name: str) -> Any:
+    module_path = _LAZY_EXPORTS.get(name)
+    if module_path is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    mod = import_module(module_path, __name__)
+    value = getattr(mod, name)
+    globals()[name] = value
+    return value
+
 
 __all__ = [
     "AgentHook",

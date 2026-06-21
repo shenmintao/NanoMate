@@ -1448,6 +1448,21 @@ class AgentLoop:
 
     async def _state_command(self, ctx: TurnContext) -> str:
         raw = ctx.msg.content.strip()
+        from nanobot.command.builtin import maybe_handle_approval_reply
+
+        approval_result = await maybe_handle_approval_reply(
+            CommandContext(msg=ctx.msg, session=ctx.session, key=ctx.session_key, raw=raw, loop=self)
+        )
+        if approval_result is not None:
+            ctx.outbound = approval_result
+            ctx.user_persisted_early = self._persist_user_message_early(
+                ctx.msg, ctx.session, _command=True
+            )
+            ctx.session.add_message("assistant", approval_result.content, _command=True)
+            self.sessions.save(ctx.session)
+            self._clear_pending_user_turn(ctx.session)
+            return "shortcut"
+
         cmd_ctx = CommandContext(
             msg=ctx.msg, session=ctx.session, key=ctx.session_key, raw=raw, loop=self
         )
