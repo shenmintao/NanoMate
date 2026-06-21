@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from nanobot.agent.skills import SkillsLoader
+from nanobot.agent.skills import BUILTIN_SKILLS_DIR, SkillsLoader
 
 
 def _write_skill(
@@ -397,3 +397,17 @@ def test_get_skill_metadata_handles_yaml_types(tmp_path: Path) -> None:
     assert meta.get("always") is True
     # metadata is a parsed dict, not a JSON string
     assert isinstance(meta.get("metadata"), dict)
+
+
+def test_builtin_life_companion_coordinators_are_always_on(tmp_path: Path) -> None:
+    """Life-assistant branch keeps companion integration rules active."""
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+
+    loader = SkillsLoader(workspace, builtin_skills_dir=BUILTIN_SKILLS_DIR)
+    always = set(loader.get_always_skills())
+
+    assert "life-manager" in always
+    assert "life-companion-bridge" in always
+    assert "life-tasks" not in always
+    assert "china-travel" not in always
