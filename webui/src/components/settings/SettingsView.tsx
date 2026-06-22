@@ -213,6 +213,8 @@ const DEFERRED_MODEL_LIST_PROVIDERS = new Set([
   "volcengine_coding_plan",
 ]);
 const DEFERRED_MODEL_LIST_QUERY_MIN_LENGTH = 2;
+const CLI_APPS_REFRESH_RETRY_MS = 2_000;
+const CLI_APPS_REFRESH_MAX_RETRIES = 30;
 
 const FALLBACK_TIMEZONES = [
   "UTC",
@@ -695,22 +697,35 @@ export function SettingsView({
   useEffect(() => {
     if (activeSection !== "apps") return;
     let cancelled = false;
-    setCliAppsLoading(true);
-    fetchCliApps(token)
-      .then((payload) => {
-        if (!cancelled) {
+    let retry: number | null = null;
+    let retryCount = 0;
+    const loadCliApps = (showLoading: boolean) => {
+      if (showLoading) setCliAppsLoading(true);
+      fetchCliApps(token)
+        .then((payload) => {
+          if (cancelled) return;
+          if (payload.catalog_refresh_pending && retryCount < CLI_APPS_REFRESH_MAX_RETRIES) {
+            retryCount += 1;
+            retry = window.setTimeout(() => {
+              retry = null;
+              loadCliApps(false);
+            }, CLI_APPS_REFRESH_RETRY_MS);
+          }
           setCliApps(payload);
           setCliAppsError(null);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) setCliAppsError((err as Error).message);
-      })
-      .finally(() => {
-        if (!cancelled) setCliAppsLoading(false);
-      });
+          setCliAppsLoading(false);
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setCliAppsError((err as Error).message);
+            setCliAppsLoading(false);
+          }
+        });
+    };
+    loadCliApps(true);
     return () => {
       cancelled = true;
+      if (retry !== null) window.clearTimeout(retry);
     };
   }, [activeSection, token]);
 
