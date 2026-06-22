@@ -12,12 +12,20 @@ delivery reminders in China.
 
 Prefer official or user-configured providers:
 
-- Kuaidi100 or Kdniao for multi-carrier tracking.
+- `china_life` tool for tracking:
+  - no reliable free/no-registration multi-carrier express API is assumed.
+  - `provider: "kuaidi100"` works when `tools.chinaLife.kuaidi100Key` and
+    `tools.chinaLife.kuaidi100Customer` are configured.
+- Kdniao for multi-carrier tracking when separately configured.
 - SF Express Open Platform for SF packages.
 - JD Logistics, Cainiao, or platform order pages when user-authorized.
 
 If no API is configured, save the tracking record and ask the user to provide status manually or
 authorize a provider later.
+
+If the user gives Kuaidi100 credentials in conversation, use `config_manage` to set
+`tools.chinaLife.kuaidi100Key` and `tools.chinaLife.kuaidi100Customer`; wait for approval before
+writing them.
 
 ## File
 
@@ -40,7 +48,7 @@ Recommended fields:
 
 1. Read `life/express.json` if it exists.
 2. Add or update the package record.
-3. Query a configured tracking integration if available.
+3. Query `china_life` if a configured tracking integration is available.
 4. Use `life-reminders` for pickup deadlines or delivery windows.
 5. Link shopping records in `life/shopping.json` when relevant.
 6. Append a short audit entry to `life/audit.md`.

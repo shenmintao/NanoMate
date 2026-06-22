@@ -62,6 +62,32 @@ def test_apply_skill_manage_payload_creates_valid_skill(tmp_path: Path) -> None:
     ) == _skill_content()
 
 
+def test_apply_skill_manage_payload_rejects_similar_skill(tmp_path: Path) -> None:
+    first = apply_skill_manage_payload(
+        tmp_path,
+        {
+            "action": "create",
+            "name": "daily-helper",
+            "content": _skill_content(),
+        },
+    )
+    assert first["success"] is True
+
+    result = apply_skill_manage_payload(
+        tmp_path,
+        {
+            "action": "create",
+            "name": "daily-assistant",
+            "content": _skill_content("daily-assistant"),
+        },
+    )
+
+    assert result["success"] is False
+    assert "similar skill" in result["error"]
+    assert result["similar_skills"][0]["name"] == "daily-helper"
+    assert not (tmp_path / "skills" / "daily-assistant").exists()
+
+
 @pytest.mark.asyncio
 async def test_skill_manage_import_url_stages_downloaded_skill(
     tmp_path: Path,

@@ -11,7 +11,9 @@ from nanobot.config_base import Base
 from nanobot.cron.types import CronSchedule
 
 if TYPE_CHECKING:
+    from nanobot.agent.tools.china_life import ChinaLifeToolConfig
     from nanobot.agent.tools.cli_apps import CliAppsToolConfig
+    from nanobot.agent.tools.config_manage import ConfigManageToolConfig
     from nanobot.agent.tools.filesystem import FileToolsConfig
     from nanobot.agent.tools.image_generation import ImageGenerationToolConfig
     from nanobot.agent.tools.self import MyToolConfig
@@ -376,6 +378,14 @@ class ToolsConfig(Base):
     exec: ExecToolConfig = Field(default_factory=lambda: _lazy_default("nanobot.agent.tools.shell", "ExecToolConfig"))
     file: FileToolsConfig = Field(default_factory=lambda: _lazy_default("nanobot.agent.tools.filesystem", "FileToolsConfig"))
     cli_apps: CliAppsToolConfig = Field(default_factory=lambda: _lazy_default("nanobot.agent.tools.cli_apps", "CliAppsToolConfig"))
+    china_life: ChinaLifeToolConfig = Field(
+        default_factory=lambda: _lazy_default("nanobot.agent.tools.china_life", "ChinaLifeToolConfig"),
+        alias="chinaLife",
+    )
+    config_manage: ConfigManageToolConfig = Field(
+        default_factory=lambda: _lazy_default("nanobot.agent.tools.config_manage", "ConfigManageToolConfig"),
+        alias="configManage",
+    )
     my: MyToolConfig = Field(default_factory=lambda: _lazy_default("nanobot.agent.tools.self", "MyToolConfig"))
     skill_manage: SkillManageToolConfig = Field(
         default_factory=lambda: _lazy_default("nanobot.agent.tools.skill_manage", "SkillManageToolConfig"),
@@ -625,7 +635,9 @@ def _resolve_tool_config_refs() -> None:
     """
     import sys
 
+    from nanobot.agent.tools.china_life import ChinaLifeToolConfig
     from nanobot.agent.tools.cli_apps import CliAppsToolConfig
+    from nanobot.agent.tools.config_manage import ConfigManageToolConfig
     from nanobot.agent.tools.filesystem import FileToolsConfig
     from nanobot.agent.tools.image_generation import ImageGenerationToolConfig
     from nanobot.agent.tools.self import MyToolConfig
@@ -638,6 +650,8 @@ def _resolve_tool_config_refs() -> None:
     mod.ExecToolConfig = ExecToolConfig  # type: ignore[attr-defined]
     mod.FileToolsConfig = FileToolsConfig  # type: ignore[attr-defined]
     mod.CliAppsToolConfig = CliAppsToolConfig  # type: ignore[attr-defined]
+    mod.ChinaLifeToolConfig = ChinaLifeToolConfig  # type: ignore[attr-defined]
+    mod.ConfigManageToolConfig = ConfigManageToolConfig  # type: ignore[attr-defined]
     mod.WebToolsConfig = WebToolsConfig  # type: ignore[attr-defined]
     mod.WebSearchConfig = WebSearchConfig  # type: ignore[attr-defined]
     mod.WebFetchConfig = WebFetchConfig  # type: ignore[attr-defined]

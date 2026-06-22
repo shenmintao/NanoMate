@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import yaml
 
 from nanobot.agent.approvals import ApprovalStore
+from nanobot.agent.skills import BUILTIN_SKILLS_DIR
 from nanobot.agent.tools.base import Tool
 from nanobot.agent.tools.context import ContextAware, RequestContext
 from nanobot.agent.tools.schema import BooleanSchema, StringSchema, tool_parameters_schema
@@ -30,6 +31,7 @@ _ALLOWED_SUPPORT_DIRS = {"references", "templates", "scripts", "assets"}
 _MAX_SKILL_CONTENT_CHARS = 100_000
 _MAX_SUPPORT_FILE_CHARS = 1_000_000
 _MAX_IMPORT_URL_CHARS = _MAX_SKILL_CONTENT_CHARS
+_SIMILARITY_THRESHOLD = 0.58
 
 
 def _tool_result(result: dict[str, Any]) -> str:
@@ -83,6 +85,137 @@ def _validate_skill_content(content: str) -> str | None:
     if not content[end.end() + 3:].strip():
         return "SKILL.md must include instructions after frontmatter."
     return None
+
+
+def _parse_skill_frontmatter(content: str) -> dict[str, Any]:
+    if not content.startswith("---"):
+        return {}
+    end = re.search(r"\n---\s*\n", content[3:])
+    if not end:
+        return {}
+    raw_yaml = content[3:end.start() + 3]
+    try:
+        meta = yaml.safe_load(raw_yaml)
+    except yaml.YAMLError:
+        return {}
+    return meta if isinstance(meta, dict) else {}
+
+
+def _strip_frontmatter(content: str) -> str:
+    if not content.startswith("---"):
+        return content
+    end = re.search(r"\n---\s*\n", content[3:])
+    if not end:
+        return content
+    return content[end.end() + 3:]
+
+
+def _skill_match_text(content: str) -> str:
+    meta = _parse_skill_frontmatter(content)
+    pieces = [
+        str(meta.get("name") or ""),
+        str(meta.get("description") or ""),
+        _strip_frontmatter(content)[:5000],
+    ]
+    return "\n".join(pieces)
+
+
+def _tokens(text: str) -> set[str]:
+    lowered = text.lower()
+    words = set(re.findall(r"[a-z0-9][a-z0-9_-]{1,}", lowered))
+    cjk = re.findall(r"[\u4e00-\u9fff]", lowered)
+    words.update("".join(cjk[i:i + 2]) for i in range(max(0, len(cjk) - 1)))
+    return {word for word in words if len(word) >= 2}
+
+
+def _similarity(left: str, right: str) -> float:
+    left_tokens = _tokens(left)
+    right_tokens = _tokens(right)
+    if not left_tokens or not right_tokens:
+        return 0.0
+    return len(left_tokens & right_tokens) / len(left_tokens | right_tokens)
+
+
+def _skill_snapshots(workspace: Path) -> list[dict[str, Any]]:
+    roots = [
+        ("workspace", workspace / "skills"),
+        ("builtin", BUILTIN_SKILLS_DIR),
+    ]
+    snapshots: list[dict[str, Any]] = []
+    seen_names: set[str] = set()
+    for source, root in roots:
+        if not root.exists():
+            continue
+        for skill_dir in sorted(root.iterdir()):
+            if not skill_dir.is_dir():
+                continue
+            skill_file = skill_dir / "SKILL.md"
+            if not skill_file.exists():
+                continue
+            name = skill_dir.name
+            if name in seen_names:
+                continue
+            try:
+                content = skill_file.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            meta = _parse_skill_frontmatter(content)
+            snapshots.append({
+                "name": name,
+                "frontmatter_name": str(meta.get("name") or ""),
+                "description": str(meta.get("description") or ""),
+                "source": source,
+                "path": str(skill_file),
+                "text": _skill_match_text(content),
+            })
+            seen_names.add(name)
+    return snapshots
+
+
+def _find_similar_skills(
+    workspace: Path,
+    name: str,
+    content: str,
+    *,
+    ignore_name: str | None = None,
+) -> list[dict[str, Any]]:
+    meta = _parse_skill_frontmatter(content)
+    frontmatter_name = str(meta.get("name") or "")
+    target_text = _skill_match_text(content)
+    matches: list[dict[str, Any]] = []
+    for snapshot in _skill_snapshots(workspace):
+        if ignore_name and snapshot["name"] == ignore_name:
+            continue
+        exact_name = name in {snapshot["name"], snapshot["frontmatter_name"]}
+        exact_frontmatter_name = (
+            bool(frontmatter_name)
+            and frontmatter_name in {snapshot["name"], snapshot["frontmatter_name"]}
+        )
+        score = _similarity(target_text, snapshot["text"])
+        if exact_name or exact_frontmatter_name or score >= _SIMILARITY_THRESHOLD:
+            reason = "name" if exact_name or exact_frontmatter_name else "similarity"
+            matches.append({
+                "name": snapshot["name"],
+                "source": snapshot["source"],
+                "path": snapshot["path"],
+                "score": round(score, 3),
+                "reason": reason,
+                "description": snapshot["description"],
+            })
+    matches.sort(key=lambda item: (item["reason"] != "name", -float(item["score"])))
+    return matches[:5]
+
+
+def _duplicate_skill_error(matches: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "success": False,
+        "error": (
+            "A similar skill already exists. Reuse or patch the existing skill instead "
+            "of creating another overlapping skill."
+        ),
+        "similar_skills": matches,
+        "suggestion": "Use action='patch' or action='edit' on the closest existing skill if new instructions are needed.",
+    }
 
 
 def _validate_support_path(file_path: str) -> str | None:
@@ -167,6 +300,8 @@ def _create_skill(workspace: Path, name: str, content: str) -> dict[str, Any]:
     skill_dir = _skill_dir(workspace, name)
     if skill_dir.exists():
         return {"success": False, "error": f"Skill '{name}' already exists."}
+    if matches := _find_similar_skills(workspace, name, content):
+        return _duplicate_skill_error(matches)
     skill_dir.mkdir(parents=True, exist_ok=False)
     _write_text(skill_dir / "SKILL.md", content)
     return {"success": True, "message": f"Skill '{name}' created.", "path": str(skill_dir)}
@@ -288,6 +423,8 @@ def _import_url_skill(
             }
         result = _edit_skill(workspace, name, content)
     else:
+        if matches := _find_similar_skills(workspace, name, content):
+            return _duplicate_skill_error(matches)
         result = _create_skill(workspace, name, content)
     if result.get("success"):
         result["message"] = f"Skill '{name}' imported from {source_url}."

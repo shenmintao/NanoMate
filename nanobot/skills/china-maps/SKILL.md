@@ -10,12 +10,19 @@ geocoding, address cleanup, meeting location choice, errands by area, and naviga
 
 ## Preferred Integrations
 
-- AMap MCP server or AMap Web Service API when available.
+- `china_life` tool first:
+  - default `provider: "auto"` or `"public"` uses Nominatim + OSRM public APIs, which do not require a key.
+  - `provider: "amap"` uses AMap Web Service API when `tools.chinaLife.amapKey` or `AMAP_KEY` is configured.
+- AMap MCP server when available.
 - Baidu Maps Web API when AMap is unavailable or the user's data is already there.
 - Generic web search only as a fallback for public place information.
 
-Do not require an API key for simple planning if web search is enough. Do not fabricate live
-traffic, opening hours, or route times.
+Prefer free/no-registration sources for low-risk planning. Do not require an API key for simple
+planning if public providers or web search are enough. Do not fabricate live traffic, opening
+hours, or route times.
+
+If the user gives an AMap key in conversation, use `config_manage` to set
+`tools.chinaLife.amapKey`; wait for approval before writing it.
 
 ## Files
 
@@ -32,7 +39,7 @@ Store location-based errands in `life/tasks.json` with `context: "errand"` and o
 ## Workflow
 
 1. Clarify origin, destination, date/time, and transport mode only when missing data changes the answer.
-2. Use an available map/search integration for route, POI, or distance data.
+2. Use `china_life` for route, POI, geocoding, or distance data when available.
 3. Summarize 1-3 practical options with tradeoffs.
 4. Save decisions to `life/calendar.json`, `life/tasks.json`, or `life/preferences.json` when the user asks or when it is clearly durable.
 5. Use `life-actions` before booking, paying, calling, messaging, or changing an external account.

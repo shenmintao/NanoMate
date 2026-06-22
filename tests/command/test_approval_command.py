@@ -9,6 +9,8 @@ from nanobot.agent.approvals import ApprovalStore
 from nanobot.bus.events import InboundMessage
 from nanobot.command.builtin import cmd_approval, maybe_handle_approval_reply
 from nanobot.command.router import CommandContext
+from nanobot.config.loader import load_config, save_config, set_config_path
+from nanobot.config.schema import Config
 
 
 def _skill_content(name: str) -> str:
@@ -34,6 +36,21 @@ def _create_pending(tmp_path: Path, name: str, *, session_key: str = "cli:direct
         kind="skill_manage",
         summary=f"Create workspace skill `{name}`.",
         payload=_payload(name),
+        session_key=session_key,
+        channel="cli",
+        chat_id="direct",
+    )
+
+
+def _create_config_pending(tmp_path: Path, *, session_key: str = "cli:direct") -> dict:
+    return ApprovalStore(tmp_path).create(
+        kind="config_manage",
+        summary="Set config `tools.chinaLife.amapKey` to `am******-key`.",
+        payload={
+            "action": "set",
+            "path": "tools.chinaLife.amapKey",
+            "value": "amap-secret-key",
+        },
         session_key=session_key,
         channel="cli",
         chat_id="direct",
@@ -84,6 +101,20 @@ async def test_approval_command_approve_applies_and_removes_record(tmp_path: Pat
 
     assert f"Approved `{record['id']}`" in out.content
     assert (tmp_path / "skills" / "daily-helper" / "SKILL.md").exists()
+    assert ApprovalStore(tmp_path).list(session_key="cli:direct") == []
+
+
+@pytest.mark.asyncio
+async def test_approval_command_applies_config_manage_record(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    set_config_path(config_path)
+    save_config(Config(), config_path)
+    record = _create_config_pending(tmp_path)
+
+    out = await cmd_approval(_ctx(tmp_path, f"/approval approve {record['id']}"))
+
+    assert f"Approved `{record['id']}`" in out.content
+    assert load_config(config_path).tools.china_life.amap_key == "amap-secret-key"
     assert ApprovalStore(tmp_path).list(session_key="cli:direct") == []
 
 

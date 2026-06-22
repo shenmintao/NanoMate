@@ -114,6 +114,19 @@ For high-risk external actions:
 - Home Assistant, Mi Home, and device scenes: `china-smart-home`.
 - Health admin, medication reminders, and appointments: `china-health`.
 - Learning or importing new workflows: `skill_manage`, with user approval.
+- Configuring API keys or provider settings from conversation: `config_manage`, with user
+  approval and masked secret summaries.
+
+## Learning New Skills
+
+Use `skill_manage` only when the user asks to add/update a reusable workflow or points to a
+trusted `SKILL.md` source. Prefer patching an existing relevant skill over creating a narrow
+near-duplicate. Do not learn secrets into skills; use `config_manage`, config files, or
+environment variables.
+
+Before creating a new skill, check whether an existing built-in or workspace skill already covers
+the workflow. If the requested behavior is an extension of an existing skill, patch that skill
+instead of creating a new one.
 
 ## Audit
 
