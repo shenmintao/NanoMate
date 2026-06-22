@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from nanobot.agent.tools.life_data import LifeDataToolConfig
     from nanobot.agent.tools.self import MyToolConfig
     from nanobot.agent.tools.shell import ExecToolConfig
+    from nanobot.agent.tools.skill_curator import SkillCuratorToolConfig
     from nanobot.agent.tools.skill_manage import SkillManageToolConfig
     from nanobot.agent.tools.web import WebToolsConfig
 
@@ -401,6 +402,10 @@ class ToolsConfig(Base):
         default_factory=lambda: _lazy_default("nanobot.agent.tools.skill_manage", "SkillManageToolConfig"),
         alias="skillManage",
     )
+    skill_curator: SkillCuratorToolConfig = Field(
+        default_factory=lambda: _lazy_default("nanobot.agent.tools.skill_curator", "SkillCuratorToolConfig"),
+        alias="skillCurator",
+    )
     image_generation: ImageGenerationToolConfig = Field(
         default_factory=lambda: _lazy_default("nanobot.agent.tools.image_generation", "ImageGenerationToolConfig"),
     )
@@ -654,6 +659,7 @@ def _resolve_tool_config_refs() -> None:
     from nanobot.agent.tools.life_data import LifeDataToolConfig
     from nanobot.agent.tools.self import MyToolConfig
     from nanobot.agent.tools.shell import ExecToolConfig
+    from nanobot.agent.tools.skill_curator import SkillCuratorToolConfig
     from nanobot.agent.tools.skill_manage import SkillManageToolConfig
     from nanobot.agent.tools.web import WebFetchConfig, WebSearchConfig, WebToolsConfig
 
@@ -672,6 +678,7 @@ def _resolve_tool_config_refs() -> None:
     mod.MyToolConfig = MyToolConfig  # type: ignore[attr-defined]
     mod.ImageGenerationToolConfig = ImageGenerationToolConfig  # type: ignore[attr-defined]
     mod.SkillManageToolConfig = SkillManageToolConfig  # type: ignore[attr-defined]
+    mod.SkillCuratorToolConfig = SkillCuratorToolConfig  # type: ignore[attr-defined]
 
     ToolsConfig.model_rebuild()
     Config.model_rebuild()

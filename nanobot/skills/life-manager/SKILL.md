@@ -121,6 +121,8 @@ For high-risk external actions:
 - Structured life-file reads and writes: `life_data`.
 - High-risk life action approval staging: `life_action`.
 - Learning or importing new workflows: `skill_manage`, with user approval.
+- Auditing or pruning agent-created workspace skills: `skill_curator`, with user approval
+  for archive/pin changes.
 - Configuring API keys or provider settings from conversation: `config_manage`, with user
   approval and masked secret summaries.
 
@@ -134,6 +136,10 @@ environment variables.
 Before creating a new skill, check whether an existing built-in or workspace skill already covers
 the workflow. If the requested behavior is an extension of an existing skill, patch that skill
 instead of creating a new one.
+
+Use `skill_curator(action="audit")` when similar generated skills may be accumulating. It may
+only soft-archive skills marked as agent-created; never use it to alter companion templates or
+manual workspace skills.
 
 ## Audit
 

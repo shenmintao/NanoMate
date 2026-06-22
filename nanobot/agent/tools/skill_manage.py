@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import time
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -32,6 +33,7 @@ _MAX_SKILL_CONTENT_CHARS = 100_000
 _MAX_SUPPORT_FILE_CHARS = 1_000_000
 _MAX_IMPORT_URL_CHARS = _MAX_SKILL_CONTENT_CHARS
 _SIMILARITY_THRESHOLD = 0.58
+AGENT_SKILL_META_FILE = ".nanomate-skill.json"
 
 
 def _tool_result(result: dict[str, Any]) -> str:
@@ -292,6 +294,57 @@ def _write_text(path: Path, content: str) -> None:
     tmp.replace(path)
 
 
+def _managed_meta_path(skill_dir: Path) -> Path:
+    return skill_dir / AGENT_SKILL_META_FILE
+
+
+def _read_agent_skill_meta(skill_dir: Path) -> dict[str, Any]:
+    meta_file = _managed_meta_path(skill_dir)
+    if not meta_file.exists():
+        return {}
+    try:
+        data = json.loads(meta_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _write_agent_skill_meta(skill_dir: Path, meta: dict[str, Any]) -> None:
+    _write_text(_managed_meta_path(skill_dir), json.dumps(meta, ensure_ascii=False, indent=2))
+
+
+def _mark_agent_created_skill(
+    workspace: Path,
+    name: str,
+    *,
+    source_url: str | None = None,
+) -> None:
+    skill_dir = _skill_dir(workspace, name)
+    existing = _read_agent_skill_meta(skill_dir)
+    now = time.time()
+    meta: dict[str, Any] = {
+        "schema_version": 1,
+        "created_by": "agent",
+        "created_at": existing.get("created_at", now),
+        "updated_at": now,
+        "pinned": bool(existing.get("pinned", False)),
+    }
+    if source_url:
+        meta["source_url"] = source_url
+    elif existing.get("source_url"):
+        meta["source_url"] = existing["source_url"]
+    _write_agent_skill_meta(skill_dir, meta)
+
+
+def _touch_agent_managed_skill(workspace: Path, name: str) -> None:
+    skill_dir = _skill_dir(workspace, name)
+    meta = _read_agent_skill_meta(skill_dir)
+    if str(meta.get("created_by") or "") != "agent":
+        return
+    meta["updated_at"] = time.time()
+    _write_agent_skill_meta(skill_dir, meta)
+
+
 def _create_skill(workspace: Path, name: str, content: str) -> dict[str, Any]:
     if err := _validate_skill_name(name):
         return {"success": False, "error": err}
@@ -304,6 +357,7 @@ def _create_skill(workspace: Path, name: str, content: str) -> dict[str, Any]:
         return _duplicate_skill_error(matches)
     skill_dir.mkdir(parents=True, exist_ok=False)
     _write_text(skill_dir / "SKILL.md", content)
+    _mark_agent_created_skill(workspace, name)
     return {"success": True, "message": f"Skill '{name}' created.", "path": str(skill_dir)}
 
 
@@ -316,6 +370,7 @@ def _edit_skill(workspace: Path, name: str, content: str) -> dict[str, Any]:
     if not (skill_dir / "SKILL.md").exists():
         return {"success": False, "error": f"Skill '{name}' not found."}
     _write_text(skill_dir / "SKILL.md", content)
+    _touch_agent_managed_skill(workspace, name)
     return {"success": True, "message": f"Skill '{name}' updated.", "path": str(skill_dir)}
 
 
@@ -354,6 +409,7 @@ def _patch_skill(
         if err := _validate_skill_content(updated):
             return {"success": False, "error": f"patched SKILL.md would be invalid: {err}"}
     _write_text(target, updated)
+    _touch_agent_managed_skill(workspace, name)
     return {
         "success": True,
         "message": f"Skill '{name}' patched.",
@@ -385,6 +441,7 @@ def _write_support_file(
     if target.name == "SKILL.md" and (err := _validate_skill_content(file_content)):
         return {"success": False, "error": err}
     _write_text(target, file_content)
+    _touch_agent_managed_skill(workspace, name)
     return {"success": True, "message": f"Wrote {file_path} for skill '{name}'.", "path": str(target)}
 
 
@@ -427,6 +484,7 @@ def _import_url_skill(
             return _duplicate_skill_error(matches)
         result = _create_skill(workspace, name, content)
     if result.get("success"):
+        _mark_agent_created_skill(workspace, name, source_url=source_url)
         result["message"] = f"Skill '{name}' imported from {source_url}."
     return result
 

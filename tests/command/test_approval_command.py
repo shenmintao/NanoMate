@@ -78,6 +78,31 @@ def _create_life_action_pending(tmp_path: Path, *, session_key: str = "cli:direc
     return ApprovalStore(tmp_path).list(session_key=session_key)[0]
 
 
+def _create_skill_curator_pending(tmp_path: Path, *, session_key: str = "cli:direct") -> dict:
+    skill_dir = tmp_path / "skills" / "old-helper"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(_skill_content("old-helper"), encoding="utf-8")
+    (skill_dir / ".nanomate-skill.json").write_text(
+        """{
+  "schema_version": 1,
+  "created_by": "agent",
+  "created_at": 1,
+  "updated_at": 1,
+  "pinned": false
+}
+""",
+        encoding="utf-8",
+    )
+    return ApprovalStore(tmp_path).create(
+        kind="skill_curator",
+        summary="Archive agent-created skill `old-helper`.",
+        payload={"action": "archive", "name": "old-helper", "reason": "duplicate"},
+        session_key=session_key,
+        channel="cli",
+        chat_id="direct",
+    )
+
+
 def _pending_life_action(tmp_path: Path) -> dict:
     import json
 
@@ -168,6 +193,18 @@ async def test_approval_command_rejects_life_action_record(tmp_path: Path) -> No
     action = _pending_life_action(tmp_path)
     assert action["status"] == "rejected"
     assert "reject" in action["rejection_text"]
+    assert ApprovalStore(tmp_path).list(session_key="cli:direct") == []
+
+
+@pytest.mark.asyncio
+async def test_approval_command_applies_skill_curator_record(tmp_path: Path) -> None:
+    record = _create_skill_curator_pending(tmp_path)
+
+    out = await cmd_approval(_ctx(tmp_path, f"/approval approve {record['id']}"))
+
+    assert f"Approved `{record['id']}`" in out.content
+    assert not (tmp_path / "skills" / "old-helper").exists()
+    assert list((tmp_path / "skills" / ".archive").iterdir())
     assert ApprovalStore(tmp_path).list(session_key="cli:direct") == []
 
 

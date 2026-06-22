@@ -728,6 +728,15 @@ def _apply_approval(ctx: CommandContext, record: dict) -> tuple[bool, str]:
             message = result.get("message") or "Approval applied."
             return True, f"Approved `{record.get('id')}`: {message}"
         return False, f"Could not apply `{record.get('id')}`: {result.get('error', 'unknown error')}"
+    if record.get("kind") == "skill_curator":
+        from nanobot.agent.tools.skill_curator import apply_skill_curator_payload
+
+        result = apply_skill_curator_payload(ctx.loop.workspace, record.get("payload") or {})
+        if result.get("success"):
+            _approval_store(ctx).remove(str(record.get("id") or ""))
+            message = result.get("message") or "Skill curation applied."
+            return True, f"Approved `{record.get('id')}`: {message}"
+        return False, f"Could not apply `{record.get('id')}`: {result.get('error', 'unknown error')}"
     if record.get("kind") == "config_manage":
         from nanobot.agent.tools.config_manage import apply_config_manage_payload
 

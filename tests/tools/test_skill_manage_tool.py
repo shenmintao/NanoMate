@@ -60,6 +60,13 @@ def test_apply_skill_manage_payload_creates_valid_skill(tmp_path: Path) -> None:
     assert (tmp_path / "skills" / "daily-helper" / "SKILL.md").read_text(
         encoding="utf-8"
     ) == _skill_content()
+    meta = json.loads(
+        (tmp_path / "skills" / "daily-helper" / ".nanomate-skill.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert meta["created_by"] == "agent"
+    assert meta["pinned"] is False
 
 
 def test_apply_skill_manage_payload_rejects_similar_skill(tmp_path: Path) -> None:
@@ -142,6 +149,15 @@ def test_apply_skill_manage_import_url_payload_uses_content_snapshot(tmp_path: P
     assert (tmp_path / "skills" / "remote-helper" / "SKILL.md").read_text(
         encoding="utf-8"
     ) == _skill_content("remote-helper")
+    meta = json.loads(
+        (tmp_path / "skills" / "remote-helper" / ".nanomate-skill.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert meta["created_by"] == "agent"
+    assert meta["source_url"] == (
+        "https://raw.githubusercontent.com/acme/skills/main/skills/remote-helper/SKILL.md"
+    )
 
 
 @pytest.mark.asyncio

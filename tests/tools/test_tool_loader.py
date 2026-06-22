@@ -298,6 +298,12 @@ def test_life_action_tool_config_cls():
     assert LifeActionTool.config_cls() is LifeActionToolConfig
 
 
+def test_skill_curator_tool_config_cls():
+    from nanobot.agent.tools.skill_curator import SkillCuratorTool, SkillCuratorToolConfig
+    assert SkillCuratorTool.config_key == "skill_curator"
+    assert SkillCuratorTool.config_cls() is SkillCuratorToolConfig
+
+
 def test_life_data_tool_create():
     from nanobot.agent.tools.life_data import LifeDataTool
     mock_config = MagicMock()
@@ -316,6 +322,18 @@ def test_life_action_tool_create():
     ctx = ToolContext(config=mock_config, workspace="/tmp", timezone="Asia/Shanghai")
     tool = LifeActionTool.create(ctx)
     assert isinstance(tool, LifeActionTool)
+
+
+def test_skill_curator_tool_create():
+    from nanobot.agent.tools.skill_curator import SkillCuratorTool
+    mock_config = MagicMock()
+    mock_config.skill_curator.enable = True
+    mock_config.skill_curator.require_approval = True
+    mock_config.skill_curator.stale_days = 90
+    mock_config.skill_curator.similarity_threshold = 0.58
+    ctx = ToolContext(config=mock_config, workspace="/tmp", timezone="Asia/Shanghai")
+    tool = SkillCuratorTool.create(ctx)
+    assert isinstance(tool, SkillCuratorTool)
 
 
 def test_web_fetch_tool_create():
