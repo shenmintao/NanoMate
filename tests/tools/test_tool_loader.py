@@ -292,6 +292,12 @@ def test_life_data_tool_config_cls():
     assert LifeDataTool.config_cls() is LifeDataToolConfig
 
 
+def test_life_action_tool_config_cls():
+    from nanobot.agent.tools.life_action import LifeActionTool, LifeActionToolConfig
+    assert LifeActionTool.config_key == "life_action"
+    assert LifeActionTool.config_cls() is LifeActionToolConfig
+
+
 def test_life_data_tool_create():
     from nanobot.agent.tools.life_data import LifeDataTool
     mock_config = MagicMock()
@@ -300,6 +306,16 @@ def test_life_data_tool_create():
     tool = LifeDataTool.create(ctx)
     assert isinstance(tool, LifeDataTool)
     assert tool.timezone == "Asia/Shanghai"
+
+
+def test_life_action_tool_create():
+    from nanobot.agent.tools.life_action import LifeActionTool
+    mock_config = MagicMock()
+    mock_config.life_action.enable = True
+    mock_config.life_action.require_approval = True
+    ctx = ToolContext(config=mock_config, workspace="/tmp", timezone="Asia/Shanghai")
+    tool = LifeActionTool.create(ctx)
+    assert isinstance(tool, LifeActionTool)
 
 
 def test_web_fetch_tool_create():

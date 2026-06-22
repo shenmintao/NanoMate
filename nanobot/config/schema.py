@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from nanobot.agent.tools.config_manage import ConfigManageToolConfig
     from nanobot.agent.tools.filesystem import FileToolsConfig
     from nanobot.agent.tools.image_generation import ImageGenerationToolConfig
+    from nanobot.agent.tools.life_action import LifeActionToolConfig
     from nanobot.agent.tools.life_data import LifeDataToolConfig
     from nanobot.agent.tools.self import MyToolConfig
     from nanobot.agent.tools.shell import ExecToolConfig
@@ -391,6 +392,10 @@ class ToolsConfig(Base):
         default_factory=lambda: _lazy_default("nanobot.agent.tools.life_data", "LifeDataToolConfig"),
         alias="lifeData",
     )
+    life_action: LifeActionToolConfig = Field(
+        default_factory=lambda: _lazy_default("nanobot.agent.tools.life_action", "LifeActionToolConfig"),
+        alias="lifeAction",
+    )
     my: MyToolConfig = Field(default_factory=lambda: _lazy_default("nanobot.agent.tools.self", "MyToolConfig"))
     skill_manage: SkillManageToolConfig = Field(
         default_factory=lambda: _lazy_default("nanobot.agent.tools.skill_manage", "SkillManageToolConfig"),
@@ -645,6 +650,7 @@ def _resolve_tool_config_refs() -> None:
     from nanobot.agent.tools.config_manage import ConfigManageToolConfig
     from nanobot.agent.tools.filesystem import FileToolsConfig
     from nanobot.agent.tools.image_generation import ImageGenerationToolConfig
+    from nanobot.agent.tools.life_action import LifeActionToolConfig
     from nanobot.agent.tools.life_data import LifeDataToolConfig
     from nanobot.agent.tools.self import MyToolConfig
     from nanobot.agent.tools.shell import ExecToolConfig
@@ -659,6 +665,7 @@ def _resolve_tool_config_refs() -> None:
     mod.ChinaLifeToolConfig = ChinaLifeToolConfig  # type: ignore[attr-defined]
     mod.ConfigManageToolConfig = ConfigManageToolConfig  # type: ignore[attr-defined]
     mod.LifeDataToolConfig = LifeDataToolConfig  # type: ignore[attr-defined]
+    mod.LifeActionToolConfig = LifeActionToolConfig  # type: ignore[attr-defined]
     mod.WebToolsConfig = WebToolsConfig  # type: ignore[attr-defined]
     mod.WebSearchConfig = WebSearchConfig  # type: ignore[attr-defined]
     mod.WebFetchConfig = WebFetchConfig  # type: ignore[attr-defined]

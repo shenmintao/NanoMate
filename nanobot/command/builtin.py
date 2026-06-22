@@ -737,10 +737,35 @@ def _apply_approval(ctx: CommandContext, record: dict) -> tuple[bool, str]:
             message = result.get("message") or "Config update applied."
             return True, f"Approved `{record.get('id')}`: {message}"
         return False, f"Could not apply `{record.get('id')}`: {result.get('error', 'unknown error')}"
+    if record.get("kind") == "life_action":
+        from nanobot.agent.tools.life_action import apply_life_action_approval
+
+        result = apply_life_action_approval(
+            ctx.loop.workspace,
+            record.get("payload") or {},
+            decision="approve",
+            approval_text=ctx.raw.strip() or "approved via /approval",
+        )
+        if result.get("success"):
+            _approval_store(ctx).remove(str(record.get("id") or ""))
+            message = result.get("message") or "Life action approved."
+            return True, f"Approved `{record.get('id')}`: {message}"
+        return False, f"Could not apply `{record.get('id')}`: {result.get('error', 'unknown error')}"
     return False, f"Unknown approval kind: {record.get('kind')}"
 
 
 def _reject_approval(ctx: CommandContext, record: dict) -> str:
+    if record.get("kind") == "life_action":
+        from nanobot.agent.tools.life_action import apply_life_action_approval
+
+        result = apply_life_action_approval(
+            ctx.loop.workspace,
+            record.get("payload") or {},
+            decision="reject",
+            approval_text=ctx.raw.strip() or "rejected via /approval",
+        )
+        if not result.get("success"):
+            return f"Could not reject `{record.get('id')}`: {result.get('error', 'unknown error')}"
     _approval_store(ctx).remove(str(record.get("id") or ""))
     return f"Rejected `{record.get('id')}`: {record.get('summary', '').strip()}"
 

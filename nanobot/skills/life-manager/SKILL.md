@@ -119,6 +119,7 @@ For high-risk external actions:
 - Home Assistant, Mi Home, and device scenes: `china-smart-home`.
 - Health admin, medication reminders, and appointments: `china-health`.
 - Structured life-file reads and writes: `life_data`.
+- High-risk life action approval staging: `life_action`.
 - Learning or importing new workflows: `skill_manage`, with user approval.
 - Configuring API keys or provider settings from conversation: `config_manage`, with user
   approval and masked secret summaries.

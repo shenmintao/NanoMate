@@ -57,6 +57,33 @@ def _create_config_pending(tmp_path: Path, *, session_key: str = "cli:direct") -
     )
 
 
+def _create_life_action_pending(tmp_path: Path, *, session_key: str = "cli:direct") -> dict:
+    from nanobot.agent.tools.life_action import create_life_action_proposal
+
+    created = create_life_action_proposal(
+        tmp_path,
+        {
+            "title": "Book train",
+            "summary": "Book G123 from Beijing to Shanghai.",
+            "risk": "high",
+            "actionType": "booking",
+            "externalSystem": "12306",
+            "payloadSummary": "train=G123, route=Beijing-Shanghai",
+        },
+        session_key=session_key,
+        channel="cli",
+        chat_id="direct",
+    )
+    assert created["success"] is True
+    return ApprovalStore(tmp_path).list(session_key=session_key)[0]
+
+
+def _pending_life_action(tmp_path: Path) -> dict:
+    import json
+
+    return json.loads((tmp_path / "life" / "pending-actions.json").read_text(encoding="utf-8"))[0]
+
+
 def _ctx(tmp_path: Path, raw: str, *, session_key: str = "cli:direct") -> CommandContext:
     msg = InboundMessage(
         channel="cli",
@@ -115,6 +142,32 @@ async def test_approval_command_applies_config_manage_record(tmp_path: Path) -> 
 
     assert f"Approved `{record['id']}`" in out.content
     assert load_config(config_path).tools.china_life.amap_key == "amap-secret-key"
+    assert ApprovalStore(tmp_path).list(session_key="cli:direct") == []
+
+
+@pytest.mark.asyncio
+async def test_approval_command_approves_life_action_record(tmp_path: Path) -> None:
+    record = _create_life_action_pending(tmp_path)
+
+    out = await cmd_approval(_ctx(tmp_path, f"/approval approve {record['id']}"))
+
+    assert f"Approved `{record['id']}`" in out.content
+    action = _pending_life_action(tmp_path)
+    assert action["status"] == "approved"
+    assert "approve" in action["approval_text"]
+    assert ApprovalStore(tmp_path).list(session_key="cli:direct") == []
+
+
+@pytest.mark.asyncio
+async def test_approval_command_rejects_life_action_record(tmp_path: Path) -> None:
+    record = _create_life_action_pending(tmp_path)
+
+    out = await cmd_approval(_ctx(tmp_path, f"/approval reject {record['id']}"))
+
+    assert f"Rejected `{record['id']}`" in out.content
+    action = _pending_life_action(tmp_path)
+    assert action["status"] == "rejected"
+    assert "reject" in action["rejection_text"]
     assert ApprovalStore(tmp_path).list(session_key="cli:direct") == []
 
 

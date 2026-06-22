@@ -473,3 +473,53 @@ class LifeDataTool(Tool):
             "file": f"life/{spec.file_name}",
             "chars": len(entry),
         }
+
+
+def apply_life_data_payload(
+    workspace: str | Path,
+    payload: dict[str, Any],
+    *,
+    timezone: str = "UTC",
+) -> dict[str, Any]:
+    """Apply a life_data mutation synchronously for command/approval paths."""
+
+    tool = LifeDataTool(workspace, timezone=timezone)
+    action = str(payload.get("action") or "").strip()
+    collection = str(payload.get("collection") or "").strip()
+    if action == "schema":
+        return {"success": True, "collections": tool._schema()}
+    if not collection:
+        return {"success": False, "error": "collection is required unless action='schema'."}
+    spec = _COLLECTIONS.get(collection)
+    if spec is None:
+        return {
+            "success": False,
+            "error": f"Unsupported life data collection: {collection}",
+            "allowed": list(_COLLECTIONS),
+        }
+    audit_note = payload.get("audit_note") or payload.get("auditNote")
+    try:
+        if action == "list":
+            return tool._list(
+                collection,
+                spec,
+                include_archived=bool(payload.get("include_archived", payload.get("includeArchived", False))),
+                limit=int(payload.get("limit", 50)),
+            )
+        if action == "get":
+            return tool._get(collection, spec, payload.get("id"))
+        if action == "add":
+            return tool._add(collection, spec, payload.get("record"), audit_note=audit_note)
+        if action == "update":
+            return tool._update(collection, spec, payload.get("id"), payload.get("record"), audit_note=audit_note)
+        if action == "archive":
+            return tool._archive(collection, spec, payload.get("id"), audit_note=audit_note)
+        if action == "merge":
+            return tool._merge_object(collection, spec, payload.get("record"), audit_note=audit_note)
+        if action == "replace":
+            return tool._replace_object(collection, spec, payload.get("record"), audit_note=audit_note)
+        if action == "append":
+            return tool._append_text(collection, spec, payload.get("text"), audit_note=audit_note)
+        return {"success": False, "error": f"Unsupported action: {action}"}
+    except (OSError, ValueError) as exc:
+        return {"success": False, "error": str(exc), "collection": collection}
