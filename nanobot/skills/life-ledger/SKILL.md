@@ -11,6 +11,7 @@ subscriptions, bills, refunds, price comparisons, or financial tracking.
 ## File
 
 Store ledger records in `life/ledger.json` as an array of objects.
+Use `life_data` with `collection: "ledger"` for normal reads and writes.
 
 Recommended fields:
 
@@ -31,11 +32,11 @@ Recommended fields:
 
 ## Workflow
 
-1. Read `life/ledger.json` if it exists.
-2. Add or update the relevant record.
-3. Preserve valid JSON and existing entries.
+1. Use `life_data(action="list", collection="ledger")` when existing context matters.
+2. Use `life_data(action="add"|"update", collection="ledger", ...)` for the relevant record.
+3. Archive obsolete records with `life_data(action="archive")`; do not hard-delete.
 4. If the record is recurring, also use `life-subscriptions`.
-5. Append a short audit entry to `life/audit.md`.
+5. Let `life_data` append the audit entry.
 6. Reply with amount, currency, category, and transaction id.
 
 If amount or direction is unclear, ask one short clarification. Do not guess money values.

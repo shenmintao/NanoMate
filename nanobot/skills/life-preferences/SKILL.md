@@ -11,6 +11,7 @@ favorite, dislike, or assistant behavior rule.
 ## File
 
 Store preferences in `life/preferences.json` as an object grouped by domain.
+Use `life_data` with `collection: "preferences"` and `action: "merge"` for normal updates.
 
 Recommended top-level keys:
 
@@ -33,11 +34,11 @@ Each preference can include:
 
 ## Workflow
 
-1. Read `life/preferences.json` if it exists.
-2. Save explicit user preferences as `confirmed`.
+1. Use `life_data(action="get", collection="preferences")` when existing context matters.
+2. Save explicit user preferences as `confirmed` with `life_data(action="merge", collection="preferences", ...)`.
 3. Save inferences only when useful and label them `inferred`; ask before using them for high-impact decisions.
 4. Apply relevant preferences when using other life skills.
-5. Append a short audit entry to `life/audit.md`.
+5. Let `life_data` append the audit entry.
 6. Reply briefly with what changed.
 
 ## Boundaries

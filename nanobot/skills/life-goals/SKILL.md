@@ -11,6 +11,7 @@ study, fitness, finances, career, or projects.
 ## File
 
 Store goals in `life/goals.json` as an array of objects.
+Use `life_data` with `collection: "goals"` for normal reads and writes.
 
 Recommended fields:
 
@@ -28,12 +29,12 @@ Recommended fields:
 
 ## Workflow
 
-1. Read `life/goals.json` if it exists.
-2. Create or update the relevant goal.
+1. Use `life_data(action="list", collection="goals")` when existing context matters.
+2. Use `life_data(action="add"|"update", collection="goals", ...)` for the relevant goal.
 3. Convert concrete next actions into `life-tasks`.
 4. Convert scheduled check-ins into `life-reminders`.
 5. Add meaningful reflections to `life/journal.md` when appropriate.
-6. Append a short audit entry to `life/audit.md`.
+6. Let `life_data` append the audit entry.
 7. Reply with the goal id and the next action.
 
 ## Sustained Work

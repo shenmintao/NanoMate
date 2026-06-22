@@ -30,6 +30,7 @@ writing them.
 ## File
 
 Store package records in `life/express.json` as an array of objects.
+Use `life_data` with `collection: "express"` for normal reads and writes.
 
 Recommended fields:
 
@@ -46,12 +47,12 @@ Recommended fields:
 
 ## Workflow
 
-1. Read `life/express.json` if it exists.
-2. Add or update the package record.
+1. Use `life_data(action="list", collection="express")` when existing context matters.
+2. Use `life_data(action="add"|"update", collection="express", ...)` for the package record.
 3. Query `china_life` if a configured tracking integration is available.
 4. Use `life-reminders` for pickup deadlines or delivery windows.
 5. Link shopping records in `life/shopping.json` when relevant.
-6. Append a short audit entry to `life/audit.md`.
+6. Let `life_data` append the audit entry.
 
 Changing delivery address, contacting courier, refunding, returning, or authorizing pickup is
 high risk. Use `life-actions` first.

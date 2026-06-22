@@ -11,6 +11,7 @@ contracts, warranties, invoices, receipts, renewals, or where important document
 ## File
 
 Store document inventory in `life/documents.json` as an array of objects.
+Use `life_data` with `collection: "documents"` for normal reads and writes.
 
 Recommended fields:
 
@@ -27,11 +28,11 @@ Recommended fields:
 
 ## Workflow
 
-1. Read `life/documents.json` if it exists.
-2. Add or update the document record.
+1. Use `life_data(action="list", collection="documents")` when existing context matters.
+2. Use `life_data(action="add"|"update", collection="documents", ...)` for the document record.
 3. If expiry or renewal exists, use `life-reminders`.
 4. If the document relates to a subscription, trip, purchase, or health appointment, link to that record.
-5. Append a short audit entry to `life/audit.md`.
+5. Let `life_data` append the audit entry.
 6. Reply with the document id and renewal reminder if created.
 
 ## Privacy

@@ -16,6 +16,7 @@ or vendor ecosystems may require unofficial or limited integrations; be explicit
 ## File
 
 Store smart-home context in `life/smart-home.json` as an object:
+Use `life_data` with `collection: "smart_home"` and `action: "merge"` for normal local updates.
 
 - `locations`: rooms and labels.
 - `devices`: entity id, display name, room, safe actions, risky actions.
@@ -27,7 +28,7 @@ Store smart-home context in `life/smart-home.json` as an object:
 
 1. Identify device, room, desired state, and timing.
 2. Check whether a real integration/tool exists.
-3. Save preferences or scene ideas locally when no integration exists.
+3. Save preferences or scene ideas locally with `life_data(action="merge", collection="smart_home", ...)` when no integration exists.
 4. Use `life-actions` before changing device state unless the user has explicitly configured that device/action as low risk.
 5. Always require second confirmation for locks, cameras, alarms, gas, heat, high-power plugs, or safety-sensitive scenes.
 6. Verify device response before claiming completion.

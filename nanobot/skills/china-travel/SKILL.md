@@ -11,6 +11,7 @@ packing, travel documents, price watches, and trip reminders.
 ## File
 
 Store travel state in `life/trips.json` as an array of objects.
+Use `life_data` with `collection: "trips"` for normal reads and writes.
 
 Recommended fields:
 
@@ -32,7 +33,7 @@ Recommended fields:
 1. Clarify destination, dates, people, budget, and constraints only when needed.
 2. Search or use available integrations for candidate trains/flights/hotels.
 3. Compare options by time, cost, transfer risk, location, refund/change policy, and user preferences.
-4. Store selected candidates in `life/trips.json`.
+4. Store selected candidates with `life_data(action="add"|"update", collection="trips", ...)`.
 5. Add calendar items, packing tasks, weather checks, and document reminders as needed.
 6. Use `life-actions` before booking, paying, cancelling, or changing tickets/hotels.
 

@@ -56,6 +56,11 @@ Before editing an existing JSON file, read it first. Preserve valid JSON and exi
 If a file does not exist, create the smallest useful valid structure, usually an empty array
 or object.
 
+Use the `life_data` tool for normal life-file reads and writes. It provides whitelisted
+collections, stable ids, `created_at`/`updated_at`, soft archive instead of hard delete, and
+automatic `life/audit.md` entries. Use raw file tools only when `life_data` cannot represent the
+needed format.
+
 ## Delegation Levels
 
 Classify each requested action before acting:
@@ -113,6 +118,7 @@ For high-risk external actions:
 - Restaurants, local services, tickets, and errands: `china-local-services`.
 - Home Assistant, Mi Home, and device scenes: `china-smart-home`.
 - Health admin, medication reminders, and appointments: `china-health`.
+- Structured life-file reads and writes: `life_data`.
 - Learning or importing new workflows: `skill_manage`, with user approval.
 - Configuring API keys or provider settings from conversation: `config_manage`, with user
   approval and masked secret summaries.

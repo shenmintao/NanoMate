@@ -11,6 +11,7 @@ orders, returns, and platform-specific purchase planning.
 ## File
 
 Store shopping records in `life/shopping.json` as an array of objects.
+Use `life_data` with `collection: "shopping"` for normal reads and writes.
 
 Recommended fields:
 
@@ -31,7 +32,7 @@ Recommended fields:
 
 1. Identify whether the user wants a list, comparison, watch, order status, or purchase.
 2. Use web/search/integrations for current price or product info when available.
-3. Save selected items or watches to `life/shopping.json`.
+3. Save selected items or watches with `life_data(action="add"|"update", collection="shopping", ...)`.
 4. Link delivery to `china-express` and payments to `life-ledger`.
 5. Use `life-actions` before placing orders, paying, returning, cancelling, messaging sellers, or changing addresses.
 

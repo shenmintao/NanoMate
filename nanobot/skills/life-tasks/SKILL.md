@@ -11,6 +11,7 @@ Use it for errands, chores, promises, waiting-for items, and personal admin.
 ## File
 
 Store tasks in `life/tasks.json` as an array of objects.
+Use `life_data` with `collection: "tasks"` for normal reads and writes.
 
 Recommended fields:
 
@@ -28,12 +29,12 @@ Recommended fields:
 
 ## Workflow
 
-1. Read `life/tasks.json` if it exists.
-2. Create or update the relevant task.
-3. Preserve valid JSON and existing entries.
+1. Use `life_data(action="list", collection="tasks")` when existing context matters.
+2. Use `life_data(action="add"|"update", collection="tasks", ...)` for the relevant task.
+3. Archive completed-obsolete records with `life_data(action="archive")`; do not hard-delete.
 4. If the task has a time-sensitive reminder, use `life-reminders`.
 5. If the task requires an external action, use `life-actions` before execution.
-6. Append a short audit entry to `life/audit.md`.
+6. Let `life_data` append the audit entry.
 7. Reply with the task id, status, priority, and important date if present.
 
 Ask one short clarification only when the task cannot be represented safely, such as a

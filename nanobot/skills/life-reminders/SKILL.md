@@ -11,6 +11,7 @@ notified later.
 ## File
 
 Store reminder metadata in `life/reminders.json` as an array of objects.
+Use `life_data` with `collection: "reminders"` for normal reads and writes.
 
 Recommended fields:
 
@@ -28,11 +29,11 @@ Recommended fields:
 ## Workflow
 
 1. Clarify date/time only if it is ambiguous enough to cause a wrong reminder.
-2. Read `life/reminders.json` if it exists.
+2. Use `life_data(action="list", collection="reminders")` when existing context matters.
 3. Use the `cron` tool for actual scheduled reminders when available.
-4. Record the cron job id and reminder metadata.
+4. Use `life_data(action="add"|"update", collection="reminders", ...)` to record the cron job id and reminder metadata.
 5. Link the reminder to tasks, calendar, goals, subscriptions, health, or companion care when relevant.
-6. Append a short audit entry to `life/audit.md`.
+6. Let `life_data` append the audit entry.
 7. Reply with the reminder id and scheduled time.
 
 Do not claim a reminder is scheduled unless the cron tool succeeded or the reminder was otherwise

@@ -25,11 +25,14 @@ Assume `local` unless a real integration is available in the current tool list o
 - `life/people.json`: coworkers and external contacts.
 - `life/pending-actions.json`: external calendar writes, messages, or approval submissions.
 
+Use `life_data` for local durable state: `tasks`, `calendar`, `documents`, `people`, and
+`pending_actions`.
+
 ## Workflow
 
 1. Identify platform: Feishu, DingTalk, or WeCom.
 2. Decide whether the request is record, draft, search, or external write.
-3. Use local files for durable state.
+3. Use `life_data` local collections for durable state.
 4. Use a real integration only if configured.
 5. Use `life-actions` before sending messages, creating external calendar events, modifying docs, or submitting approvals.
 6. Verify external results and store returned ids when available.

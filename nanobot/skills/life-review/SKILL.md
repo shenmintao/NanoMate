@@ -11,6 +11,7 @@ task review, spending review, mood review, or "what should I focus on".
 ## Inputs
 
 Read only the files needed for the requested review:
+Use `life_data(action="list"|"get", ...)` for these standard collections when possible.
 
 - `life/tasks.json`
 - `life/calendar.json`
@@ -47,9 +48,9 @@ Do not over-medicalize emotions. Do not invent patterns from one data point.
 
 ## Workflow
 
-1. Read relevant life files.
+1. Read relevant life files, preferring `life_data` for standard collections.
 2. Summarize evidence-backed facts.
 3. Identify gaps or stale records.
 4. Save the review only if requested or if it is part of a scheduled review workflow.
-5. Append a short audit entry if a file was written.
+5. Use `life_data(action="append", collection="audit", ...)` for the audit entry if a review file was written.
 6. Reply in the tone appropriate to the active context; use `life-companion-bridge` if Companion Mode is involved.

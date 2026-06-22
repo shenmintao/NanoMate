@@ -11,6 +11,7 @@ a diary entry, or preserve a companion-relevant memory.
 ## File
 
 Store journal entries in `life/journal.md`.
+Use `life_data` with `collection: "journal"` and `action: "append"` for normal journal writes.
 
 Recommended format:
 
@@ -21,6 +22,7 @@ Recommended format:
 ```
 
 For structured mood trends, store optional lightweight records in `life/mood.json` as an array:
+Use `life_data` with `collection: "mood"` for structured mood records.
 
 - `id`
 - `observed_at`
@@ -32,10 +34,10 @@ For structured mood trends, store optional lightweight records in `life/mood.jso
 
 ## Workflow
 
-1. Read `life/journal.md` if it exists.
-2. Add a concise entry using the user's words where possible.
+1. Use `life_data(action="get", collection="journal")` when existing context matters.
+2. Use `life_data(action="append", collection="journal", ...)` to add a concise entry using the user's words where possible.
 3. If the entry implies a task, event, preference, or person follow-up, route to the relevant skill.
-4. Append a short audit entry to `life/audit.md`.
+4. Let `life_data` append the audit entry.
 5. Reply naturally, especially when Companion Mode is active.
 
 ## Companion Memories

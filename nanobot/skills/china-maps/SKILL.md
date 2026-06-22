@@ -27,6 +27,7 @@ If the user gives an AMap key in conversation, use `config_manage` to set
 ## Files
 
 Store reusable location context in `life/preferences.json`:
+Use `life_data` with `collection: "preferences"` for reusable location preferences.
 
 - home/work/school labels, never full address unless the user explicitly wants it stored
 - preferred transport modes
@@ -35,13 +36,14 @@ Store reusable location context in `life/preferences.json`:
 
 Store location-based errands in `life/tasks.json` with `context: "errand"` and optional
 `location`.
+Use `life_data` with `collection: "tasks"` for errands.
 
 ## Workflow
 
 1. Clarify origin, destination, date/time, and transport mode only when missing data changes the answer.
 2. Use `china_life` for route, POI, geocoding, or distance data when available.
 3. Summarize 1-3 practical options with tradeoffs.
-4. Save decisions to `life/calendar.json`, `life/tasks.json`, or `life/preferences.json` when the user asks or when it is clearly durable.
+4. Save durable decisions with `life_data` to `calendar`, `tasks`, or `preferences` when the user asks or when clearly durable.
 5. Use `life-actions` before booking, paying, calling, messaging, or changing an external account.
 
 ## Companion Fusion

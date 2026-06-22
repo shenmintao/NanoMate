@@ -16,6 +16,7 @@ Encourage professional care for symptoms, medication changes, emergencies, or un
 ## File
 
 Store health admin records in `life/health.json` as an array of objects.
+Use `life_data` with `collection: "health"` for normal reads and writes.
 
 Recommended fields:
 
@@ -32,7 +33,7 @@ Recommended fields:
 ## Workflow
 
 1. Determine whether the request is admin, reminder, record keeping, or medical advice.
-2. For admin/reminder tasks, update `life/health.json` and related life files.
+2. For admin/reminder tasks, use `life_data(action="add"|"update", collection="health", ...)` and related life files.
 3. For medical advice, keep the response non-diagnostic and recommend qualified professionals.
 4. For appointments, use `life-calendar` and `life-reminders`.
 5. For ID/insurance/documents, use `life-documents`.

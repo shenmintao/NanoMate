@@ -11,6 +11,7 @@ preference, promise, conflict, or follow-up involving someone else.
 ## File
 
 Store people records in `life/people.json` as an array of objects.
+Use `life_data` with `collection: "people"` for normal reads and writes.
 
 Recommended fields:
 
@@ -28,11 +29,11 @@ Recommended fields:
 
 ## Workflow
 
-1. Read `life/people.json` if it exists.
-2. Add or update only facts the user clearly provided or confirmed.
+1. Use `life_data(action="list", collection="people")` when existing context matters.
+2. Use `life_data(action="add"|"update", collection="people", ...)` for facts the user clearly provided or confirmed.
 3. Link promised follow-ups to `life/tasks.json`.
 4. Link birthdays or appointments to `life/calendar.json` and `life/reminders.json` when useful.
-5. Append a short audit entry to `life/audit.md`.
+5. Let `life_data` append the audit entry.
 6. Reply with what was remembered and any follow-up id.
 
 ## Privacy

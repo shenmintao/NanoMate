@@ -58,6 +58,9 @@ Use this pattern for mixed companion + assistant requests:
 4. **Ask**: use `life-actions` before external execution, with second confirmation when required.
 5. **Reflect**: if the interaction matters emotionally, write a concise `life/journal.md` entry.
 
+When a durable companion-linked fact is saved, the relevant life skill should use `life_data` for
+the actual write so ids, timestamps, and audit entries stay consistent.
+
 Example:
 
 User: "下周陪我去上海吧，顺便帮我看看高铁和酒店。"
@@ -66,7 +69,7 @@ Expected behavior:
 
 - Reply as the companion, not as a travel agency.
 - Use `china-travel` to research train/hotel candidates.
-- Use `life-calendar` and `life/tasks` for tentative plans.
+- Use `life-calendar` and `life-tasks` for tentative plans.
 - Use `life-actions` before booking or paying.
 - If a shared travel moment matters, record it in `life/journal.md`.
 

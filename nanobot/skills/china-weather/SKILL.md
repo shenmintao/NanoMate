@@ -27,6 +27,7 @@ If the user gives a QWeather or AMap key in conversation, use `config_manage` to
 ## Files
 
 Store weather-sensitive preferences in `life/preferences.json`, such as:
+Use `life_data` with `collection: "preferences"` for these preferences.
 
 - umbrella threshold
 - air-quality sensitivity
@@ -34,13 +35,14 @@ Store weather-sensitive preferences in `life/preferences.json`, such as:
 - commute weather reminders
 
 Store scheduled weather checks in `life/reminders.json`.
+Use `life_data` with `collection: "reminders"` for local reminder metadata.
 
 ## Workflow
 
 1. Identify city/district and time window.
 2. Fetch current conditions and forecast with `china_life` if available.
 3. Give practical advice: umbrella, coat, mask, sunscreen, commute buffer, or plan change.
-4. If the weather affects an event or trip, update `life/calendar.json` or `life/trips.json`.
+4. If the weather affects an event or trip, update `calendar` or `trips` through `life_data`.
 5. If the user wants ongoing alerts, use `life-reminders`.
 
 ## Risk

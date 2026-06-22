@@ -286,6 +286,22 @@ def test_web_search_tool_create():
     assert isinstance(tool, WebSearchTool)
 
 
+def test_life_data_tool_config_cls():
+    from nanobot.agent.tools.life_data import LifeDataTool, LifeDataToolConfig
+    assert LifeDataTool.config_key == "life_data"
+    assert LifeDataTool.config_cls() is LifeDataToolConfig
+
+
+def test_life_data_tool_create():
+    from nanobot.agent.tools.life_data import LifeDataTool
+    mock_config = MagicMock()
+    mock_config.life_data.enable = True
+    ctx = ToolContext(config=mock_config, workspace="/tmp", timezone="Asia/Shanghai")
+    tool = LifeDataTool.create(ctx)
+    assert isinstance(tool, LifeDataTool)
+    assert tool.timezone == "Asia/Shanghai"
+
+
 def test_web_fetch_tool_create():
     from nanobot.agent.tools.web import WebFetchTool
     mock_config = MagicMock()

@@ -11,6 +11,7 @@ planning, nearby errands, and service reservations.
 ## File
 
 Store local-service records in `life/local-services.json` as an array of objects.
+Use `life_data` with `collection: "local_services"` for normal reads and writes.
 
 Recommended fields:
 
@@ -31,7 +32,7 @@ Recommended fields:
 1. Clarify city/area, time, budget, people count, and constraints when needed.
 2. Use `china-maps`, web search, or available local-service integrations for options.
 3. Present a short ranked list with tradeoffs.
-4. Save selected candidates or plans.
+4. Save selected candidates or plans with `life_data(action="add"|"update", collection="local_services", ...)`.
 5. Use `life-actions` before booking, paying deposits, cancelling, or sending messages/calls.
 6. Add calendar and reminder records when plans are chosen.
 

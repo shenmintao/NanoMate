@@ -11,6 +11,7 @@ auto-renewal, cancellation dates, or bills.
 ## File
 
 Store subscriptions in `life/subscriptions.json` as an array of objects.
+Use `life_data` with `collection: "subscriptions"` for normal reads and writes.
 
 Recommended fields:
 
@@ -31,11 +32,11 @@ Recommended fields:
 
 ## Workflow
 
-1. Read `life/subscriptions.json` if it exists.
-2. Create or update the subscription.
+1. Use `life_data(action="list", collection="subscriptions")` when existing context matters.
+2. Use `life_data(action="add"|"update", collection="subscriptions", ...)` for the subscription.
 3. Add or update a ledger record with `life-ledger` when a payment happened.
 4. Add a reminder before renewal or cancellation deadlines with `life-reminders`.
-5. Append a short audit entry to `life/audit.md`.
+5. Let `life_data` append the audit entry.
 6. Reply with next billing/cancel date and subscription id.
 
 Cancelling, upgrading, downgrading, paying, or changing a subscription in an external system is

@@ -11,6 +11,7 @@ time blocks, routines, or time-based plans.
 ## File
 
 Store calendar-like records in `life/calendar.json` as an array of objects.
+Use `life_data` with `collection: "calendar"` for normal reads and writes.
 
 Recommended fields:
 
@@ -29,12 +30,12 @@ Recommended fields:
 
 ## Workflow
 
-1. Read `life/calendar.json` if it exists.
-2. Add or update the relevant record.
-3. Preserve valid JSON and existing entries.
+1. Use `life_data(action="list", collection="calendar")` when existing context matters.
+2. Use `life_data(action="add"|"update", collection="calendar", ...)` for the relevant record.
+3. Archive obsolete local records with `life_data(action="archive")`; do not hard-delete.
 4. If the event needs a reminder, use `life-reminders`.
 5. If the event belongs to travel, local services, office work, or health, also update the matching skill file.
-6. Append a short audit entry to `life/audit.md`.
+6. Let `life_data` append the audit entry.
 7. Confirm what was recorded, including date/time uncertainty if any.
 
 ## External Calendars And Bookings
