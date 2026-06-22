@@ -14,7 +14,8 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/nanomate-life-assistant
+  IMAGE_NAME: ${{ github.repository_owner }}/nanomate
+  LEGACY_IMAGE_NAME: ${{ github.repository_owner }}/nanomate-life-assistant
 
 jobs:
   build-and-push:
@@ -44,7 +45,9 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+            ${{ env.REGISTRY }}/${{ env.LEGACY_IMAGE_NAME }}
           flavor: |
             latest=false
           tags: |

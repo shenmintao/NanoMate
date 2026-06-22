@@ -1,7 +1,7 @@
 name: nanomate-life-assistant
 
 x-nanomate-common: &nanomate-common
-  image: ${NANOMATE_IMAGE:-ghcr.io/shenmintao/nanomate-life-assistant:life-assistant}
+  image: ${NANOMATE_IMAGE:-ghcr.io/shenmintao/nanomate:life-assistant}
   volumes:
     - nanomate-life-data:/home/nanobot/.nanobot
   environment:
@@ -78,7 +78,7 @@ services:
       - "${NANOMATE_API_HOST_PORT:-8900}:8900"
 
   whatsapp-bridge:
-    image: ${NANOMATE_IMAGE:-ghcr.io/shenmintao/nanomate-life-assistant:life-assistant}
+    image: ${NANOMATE_IMAGE:-ghcr.io/shenmintao/nanomate:life-assistant}
     container_name: nanomate-whatsapp-bridge
     profiles: ["whatsapp"]
     depends_on:

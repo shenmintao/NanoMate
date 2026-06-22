@@ -18,7 +18,7 @@ docker compose --env-file .env.life-assistant -f docker-compose.life-assistant.y
 默认镜像来自 GitHub Container Registry：
 
 ```text
-ghcr.io/shenmintao/nanomate-life-assistant:life-assistant
+ghcr.io/shenmintao/nanomate:life-assistant
 ```
 
 如果 GitHub Packages 里还没有这个镜像，先在 GitHub Actions 手动运行 `Build and Push Life Assistant Docker Image`，或者推送 `life-assistant` 分支触发自动构建。首次发布后如果需要公开拉取，需要在 GitHub Packages 页面把 package visibility 改成 public。
