@@ -788,19 +788,17 @@ def test_update_network_safety_settings_default_access_is_webui_only(
 def test_openai_codex_oauth_status_uses_available_token(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def fake_get_token():
-        return type(
-            "Token",
-            (),
-            {
-                "access": "access-token",
-                "refresh": "refresh-token",
-                "expires": 2_000_000_000_000,
-                "account_id": "acct-codex",
-            },
-        )()
-
-    monkeypatch.setattr("oauth_cli_kit.get_token", fake_get_token)
+    token = type(
+        "Token",
+        (),
+        {
+            "access": "access-token",
+            "refresh": "refresh-token",
+            "expires": 2_000_000_000_000,
+            "account_id": "acct-codex",
+        },
+    )()
+    monkeypatch.setattr("oauth_cli_kit.storage.FileTokenStorage.load", lambda _self: token)
 
     status = _oauth_provider_status(find_by_name("openai_codex"))
 
@@ -808,13 +806,34 @@ def test_openai_codex_oauth_status_uses_available_token(
     assert status["account"] == "acct-codex"
 
 
+def test_openai_codex_oauth_status_uses_refreshable_expired_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    token = type(
+        "Token",
+        (),
+        {
+            "access": "access-token",
+            "refresh": "refresh-token",
+            "expires": 1,
+            "account_id": "acct-codex",
+        },
+    )()
+    monkeypatch.setattr("oauth_cli_kit.storage.FileTokenStorage.load", lambda _self: token)
+
+    status = _oauth_provider_status(find_by_name("openai_codex"))
+
+    assert status["configured"] is True
+    assert status["expires_at"] == 1
+
+
 def test_openai_codex_oauth_status_rejects_unavailable_token(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def fake_get_token():
+    def fake_load(_self):
         raise RuntimeError("refresh failed")
 
-    monkeypatch.setattr("oauth_cli_kit.get_token", fake_get_token)
+    monkeypatch.setattr("oauth_cli_kit.storage.FileTokenStorage.load", fake_load)
 
     status = _oauth_provider_status(find_by_name("openai_codex"))
 
