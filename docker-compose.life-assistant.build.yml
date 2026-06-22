@@ -1,0 +1,18 @@
+name: nanomate-life-assistant
+
+x-nanomate-build: &nanomate-build
+  context: .
+  dockerfile: Dockerfile
+
+services:
+  life-assistant:
+    image: nanomate-life-assistant:local
+    build: *nanomate-build
+
+  life-api:
+    image: nanomate-life-assistant:local
+    build: *nanomate-build
+
+  whatsapp-bridge:
+    image: nanomate-life-assistant:local
+    build: *nanomate-build

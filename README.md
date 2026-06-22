@@ -348,8 +348,10 @@ For the `life-assistant` branch, use the dedicated compose file:
 
 ```bash
 cp .env.life-assistant.example .env.life-assistant
-docker compose --env-file .env.life-assistant -f docker-compose.life-assistant.yml up -d --build
+docker compose --env-file .env.life-assistant -f docker-compose.life-assistant.yml up -d
 ```
+
+This pulls `ghcr.io/shenmintao/nanomate-life-assistant:life-assistant` by default. For a local build, add `-f docker-compose.life-assistant.build.yml --build`.
 
 See [`docs/life-assistant-docker.md`](docs/life-assistant-docker.md).
 

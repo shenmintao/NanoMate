@@ -7,13 +7,27 @@
 ```bash
 cp .env.life-assistant.example .env.life-assistant
 # 编辑 .env.life-assistant，至少填一个 LLM API key，例如 DEEPSEEK_API_KEY
-docker compose --env-file .env.life-assistant -f docker-compose.life-assistant.yml up -d --build
+docker compose --env-file .env.life-assistant -f docker-compose.life-assistant.yml up -d
 ```
 
 访问：
 
 - WebUI/gateway: `http://127.0.0.1:18790`
 - OpenAI-compatible API profile: `http://127.0.0.1:8900/v1/chat/completions`
+
+默认镜像来自 GitHub Container Registry：
+
+```text
+ghcr.io/shenmintao/nanomate-life-assistant:life-assistant
+```
+
+如果 GitHub Packages 里还没有这个镜像，先在 GitHub Actions 手动运行 `Build and Push Life Assistant Docker Image`，或者推送 `life-assistant` 分支触发自动构建。首次发布后如果需要公开拉取，需要在 GitHub Packages 页面把 package visibility 改成 public。
+
+本地构建镜像时加上 override 文件：
+
+```bash
+docker compose --env-file .env.life-assistant -f docker-compose.life-assistant.yml -f docker-compose.life-assistant.build.yml up -d --build
+```
 
 启动 API profile：
 

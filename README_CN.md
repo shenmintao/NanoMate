@@ -352,6 +352,15 @@ docker compose up -d
 
 `docker-compose.yml` 已包含 WhatsApp 桥接和代理配置。
 
+`life-assistant` 分支使用独立的生活助手 compose 文件，默认从 GitHub Container Registry 拉取生活助手镜像：
+
+```bash
+cp .env.life-assistant.example .env.life-assistant
+docker compose --env-file .env.life-assistant -f docker-compose.life-assistant.yml up -d
+```
+
+默认镜像是 `ghcr.io/shenmintao/nanomate-life-assistant:life-assistant`。如果需要本地构建，加上 `-f docker-compose.life-assistant.build.yml --build`。
+
 ---
 
 ## 项目结构（NanoMate 新增部分）
