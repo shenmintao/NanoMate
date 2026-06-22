@@ -18,20 +18,21 @@ WORKDIR /app
 # hook from hatch_build.py even for this metadata-only install.
 COPY pyproject.toml README.md LICENSE THIRD_PARTY_NOTICES.md hatch_build.py ./
 RUN mkdir -p nanobot bridge && touch nanobot/__init__.py && \
-    uv pip install --system --no-cache . && \
+    uv pip install --system --no-cache '.[api]' && \
     rm -rf nanobot bridge
 
 # Copy the full source and install
 COPY nanobot/ nanobot/
 COPY bridge/ bridge/
 COPY webui/ webui/
-RUN NANOBOT_FORCE_WEBUI_BUILD=1 uv pip install --system --no-cache .
+COPY docker/ docker/
+RUN NANOBOT_FORCE_WEBUI_BUILD=1 uv pip install --system --no-cache --no-deps '.[api]'
 
 # Build the WhatsApp bridge
 WORKDIR /app/bridge
 RUN git config --global --add url."https://github.com/".insteadOf ssh://git@github.com/ && \
     git config --global --add url."https://github.com/".insteadOf git@github.com: && \
-    npm install && chmod +x node_modules/.bin/* && npm run build
+    npm ci --include=dev && chmod +x node_modules/.bin/* && npm run build && npm prune --omit=dev
 WORKDIR /app
 
 # Create non-root user and config directory
@@ -40,7 +41,8 @@ RUN useradd -m -u 1000 -s /bin/bash nanobot && \
     chown -R nanobot:nanobot /home/nanobot /app
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh /app/docker/*.sh && \
+    chmod +x /usr/local/bin/entrypoint.sh /app/docker/*.sh
 
 USER nanobot
 ENV HOME=/home/nanobot

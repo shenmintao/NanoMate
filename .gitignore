@@ -91,6 +91,7 @@ nano.*.save
 # Environment & secrets (keep examples tracked if needed)
 .env.*
 !.env.example
+!.env.life-assistant.example
 
 # Logs & temp
 *.log

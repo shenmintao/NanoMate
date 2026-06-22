@@ -344,6 +344,15 @@ docker compose up -d
 
 The `docker-compose.yml` includes the WhatsApp bridge and proxy configuration.
 
+For the `life-assistant` branch, use the dedicated compose file:
+
+```bash
+cp .env.life-assistant.example .env.life-assistant
+docker compose --env-file .env.life-assistant -f docker-compose.life-assistant.yml up -d --build
+```
+
+See [`docs/life-assistant-docker.md`](docs/life-assistant-docker.md).
+
 ---
 
 ## Project Structure (NanoMate additions)

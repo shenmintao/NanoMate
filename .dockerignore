@@ -10,5 +10,10 @@ nanobot/web/dist/
 .env
 .assets
 node_modules/
+bridge/node_modules/
+webui/node_modules/
 bridge/dist/
 workspace/
+data/
+.tmp-*/
+plans/

@@ -1,0 +1,105 @@
+name: nanomate-life-assistant
+
+x-nanomate-common: &nanomate-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: nanomate-life-assistant:local
+  volumes:
+    - nanomate-life-data:/home/nanobot/.nanobot
+  environment:
+    TZ: ${TZ:-Asia/Shanghai}
+    NANOMATE_CONFIG: /home/nanobot/.nanobot/config.json
+    NANOMATE_WORKSPACE: /home/nanobot/.nanobot/workspace
+    NANOMATE_PROVIDER: ${NANOMATE_PROVIDER:-deepseek}
+    NANOMATE_MODEL: ${NANOMATE_MODEL:-deepseek-chat}
+    NANOMATE_BOT_NAME: ${NANOMATE_BOT_NAME:-NanoMate}
+    NANOMATE_GATEWAY_HOST: 0.0.0.0
+    NANOMATE_GATEWAY_PORT: 18790
+    NANOMATE_API_HOST: 0.0.0.0
+    NANOMATE_API_PORT: 8900
+    NANOMATE_UNIFIED_SESSION: ${NANOMATE_UNIFIED_SESSION:-true}
+    NANOMATE_RESTRICT_TO_WORKSPACE: ${NANOMATE_RESTRICT_TO_WORKSPACE:-true}
+    NANOMATE_PUBLIC_PROVIDERS_ENABLED: ${NANOMATE_PUBLIC_PROVIDERS_ENABLED:-true}
+    NANOMATE_SILLYTAVERN_ENABLED: ${NANOMATE_SILLYTAVERN_ENABLED:-false}
+    NANOMATE_PROVIDER_API_KEY: ${NANOMATE_PROVIDER_API_KEY:-}
+    NANOMATE_PROVIDER_API_BASE: ${NANOMATE_PROVIDER_API_BASE:-}
+    DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+    OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    SILICONFLOW_API_KEY: ${SILICONFLOW_API_KEY:-}
+    DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+    GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    MOONSHOT_API_KEY: ${MOONSHOT_API_KEY:-}
+    ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY:-}
+    AMAP_KEY: ${AMAP_KEY:-}
+    QWEATHER_KEY: ${QWEATHER_KEY:-}
+    KUAIDI100_KEY: ${KUAIDI100_KEY:-}
+    KUAIDI100_CUSTOMER: ${KUAIDI100_CUSTOMER:-}
+    NANOMATE_WEB_SEARCH_PROVIDER: ${NANOMATE_WEB_SEARCH_PROVIDER:-}
+    NANOMATE_WEB_SEARCH_API_KEY: ${NANOMATE_WEB_SEARCH_API_KEY:-}
+    NANOMATE_WEB_SEARCH_BASE_URL: ${NANOMATE_WEB_SEARCH_BASE_URL:-}
+    HTTP_PROXY: ${HTTP_PROXY:-}
+    HTTPS_PROXY: ${HTTPS_PROXY:-}
+    NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,host.docker.internal}
+  extra_hosts:
+    - host.docker.internal:host-gateway
+  cap_drop:
+    - ALL
+  cap_add:
+    - SYS_ADMIN
+  security_opt:
+    - apparmor=unconfined
+    - seccomp=unconfined
+
+services:
+  life-assistant:
+    <<: *nanomate-common
+    container_name: nanomate-life-assistant
+    entrypoint: ["/app/docker/life-assistant-entrypoint.sh"]
+    command: ["gateway"]
+    restart: unless-stopped
+    ports:
+      - "${NANOMATE_GATEWAY_HOST_PORT:-18790}:18790"
+      - "${NANOMATE_WEBSOCKET_HOST_PORT:-8765}:8765"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:18790/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  life-api:
+    <<: *nanomate-common
+    container_name: nanomate-life-api
+    profiles: ["api"]
+    entrypoint: ["/app/docker/life-assistant-entrypoint.sh"]
+    command: ["serve", "--host", "0.0.0.0", "--port", "8900"]
+    restart: unless-stopped
+    ports:
+      - "${NANOMATE_API_HOST_PORT:-8900}:8900"
+
+  whatsapp-bridge:
+    image: nanomate-life-assistant:local
+    container_name: nanomate-whatsapp-bridge
+    profiles: ["whatsapp"]
+    depends_on:
+      life-assistant:
+        condition: service_started
+    volumes:
+      - nanomate-life-data:/home/nanobot/.nanobot
+    working_dir: /app/bridge
+    entrypoint: []
+    command: ["npm", "start"]
+    restart: unless-stopped
+    ports:
+      - "${NANOMATE_BRIDGE_HOST_PORT:-3002}:3002"
+    environment:
+      BRIDGE_PORT: 3002
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,host.docker.internal}
+
+volumes:
+  nanomate-life-data:
